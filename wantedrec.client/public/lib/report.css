@@ -1,0 +1,385 @@
+﻿@font-face {
+    font-family: btbold;
+    src: url(../fonts/PTBoldHeading.ttf);
+}
+
+
+@font-face {
+    font-family: font1;
+    src: url(../fonts/Aref_Ruqaa/ArefRuqaa-Bold.ttf);
+}
+
+@font-face {
+    font-family: font2;
+    src: url(../fonts/Amiri/Amiri-Bold.ttf);
+}
+
+* {
+    font-family: Arial, Helvetica, sans-serif;
+ 
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    max-height :90%;
+}
+
+  td, th {
+    border: 1px solid #000;
+    page-break-after: always;
+    page-break-inside: avoid;
+    text-align: center;
+}
+
+    table tbody tr {
+        page-break-inside:  unset;
+    }
+
+    table thead {
+        display: table-row-group;
+        width: 100%;
+        background-color: lightblue;
+    }
+
+.tableformat th {
+    background-color: lightyellow;
+}
+
+.tableformat td {
+    text-align: center;
+}
+.span {
+        font-size: 20px;
+        font-weight: bold;
+    }
+.tabletel{
+    margin:0;
+    padding:0;
+    position:absolute;
+}
+.tabletel td {
+    padding: 2px;
+     
+ 
+}
+.tabletel tbody tr td{
+    min-width:66px;
+}
+.tabletel tbody tr td:nth-child(2) {
+        min-width: 100px;
+    }
+.tabletel thead tr th {
+        padding-right: 6px;
+        padding-left: 6px;
+  
+        min-width: 69px;
+    }
+
+* {
+    font-size: 14px;
+    direction: rtl;
+    font-family:Arial;
+}
+
+.tabletel {
+    transform: scaleX(.6);
+}
+.tabletel2 {
+    transform: scaleX(.86);
+}
+.tabletel2 tbody tr td {
+    padding: 2px;
+   
+}
+
+.tabletel2 tbody tr td {
+    min-width: 40px;
+}
+
+    .tabletel2 tbody tr td:nth-child(2) {
+        min-width: 90px;
+    }
+
+    .tabletel2 thead tr th {
+        padding-right: 6px;
+        padding-left: 6px;
+        min-width: 68px;
+    }
+.tabletel2 thead tr:nth-child(1)  th:nth-child(1)  {
+    font-size:35px;
+
+          }
+        .tabletel thead tr:nth-child(1)  th:nth-child(1) {
+            font-size: 35px;
+        }
+
+.result {
+    min-width: 60px;
+}
+
+.date {
+    min-width: 110px;
+}
+
+.days {
+    border-radius: 8px;
+    background-color: #5F8670;
+    font-weight: 400;
+    font-size: 16px;
+    padding: 2px 4px 2px 4px;
+}
+
+.att-status {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.days-not-1 {
+    background-color: #AF2655;
+}
+
+.days-not {
+    background-color: #ED7D31;
+}
+
+.user-act img {
+    width: 50px;
+}
+
+.user-act-name {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 5px;
+}
+
+    .user-act-name .t {
+        color: #fff;
+        border-radius: 6px;
+        max-width: fit-content;
+        margin-top: 4px;
+        padding: 2px 12px 0 12px;
+    }
+
+    .user-act-name .name {
+        background-color: #4682A9;
+    }
+
+    .user-act-name .uname {
+        background-color: #279EFF;
+    }
+
+    .user-act-name .tname {
+        background-color: #749BC2;
+    }
+
+.user-act-head {
+    background-color: red;
+}
+.singuger {
+  
+    margin-top:3rem;
+
+}
+.watermark {
+    position: absolute;
+    
+    opacity: 0.2; /* 20% شفافية */
+    z-index: -1; /* تأكد من أن العلامة المائية خلف النص */
+    width: 50%;
+    height: 50%;
+    top: 0;
+    left: 20px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius:50%;
+}
+
+ table thead tr th {
+    max-width: 70px !important;
+    padding: 0 !important;
+    max-height: 20px !important;
+    background-color: #456191d8;
+    color: #fff !important;
+}
+
+.bg-thead {
+    background-color: #456191d8;
+}
+.ammo-title {
+    width: 97%;
+    margin: 0 auto;
+    text-align: center;
+    background-color: rgb(59, 82, 131, 0.89);
+    color: black;
+    border-radius: 6px;
+    padding: 6px;
+    color: #fff;
+    font-weight: bolder !important;
+}
+
+    .ammo-title * {
+        color: #fff;
+        font-weight: bold !important;
+    }
+
+.ammosize-table thead tr th {
+    background-color: rgb(43, 70, 128, 0.95);
+    vertical-align: middle;
+    max-width: 40px;
+    padding:0;
+}
+
+.ammosize-table tbody tr td {
+    vertical-align: middle;
+}
+
+.underline {
+    font-weight: bold;
+    text-decoration-line: underline;
+    text-align: right;
+    margin: 0;
+    font-weight: 900;
+}
+
+.span-tr {
+    display: block;
+    text-align: right;
+    font-weight: 700;
+}
+
+span.tr-1:nth-child(1) {
+    margin-top: 25px;
+}
+
+span.tr-1 {
+    text-align: center;
+}
+
+
+
+
+.ammosize-table thead tr th {
+    max-width: 100px !important;
+    padding: 0 !important;
+    max-height: 15px !important;
+    background-color: #f6ffb4d8;
+    color: #000 !important;
+}
+
+.thead-1 {
+    background-color: #e1f098d8;
+    color: #fff !important;
+}
+
+.thead-2 {
+    font-weight: bold;
+}
+
+.notc {
+    color: red;
+    font-weight: bold;
+    text-decoration: underline;
+    margin: 0;
+    width: 50px;
+}
+
+.notc-1 {
+    color: red;
+    margin-right: 50px;
+    font-weight: bold;
+    margin-top: 0;
+}
+
+.Unit {
+    font-weight: bold;
+}
+
+.font-weight-bold {
+    font-weight: 600;
+}
+ 
+.ammosize-table tr, .ammosize-table tr th {
+    border-color: black !important;
+}
+
+.ammo-name {
+    width: 200px !important;
+}
+
+.ammo-name-100 {
+    width: 75px !important;
+}
+
+.ammo-name-50 {
+    width: 40px !important;
+}
+.ammosize-table *{
+    font-size:12px;
+}
+
+.ammosize-table{
+    width:100%;
+}
+.watermark-1 {
+    position: fixed;
+    color: lightgray;
+    opacity: 0.25;
+    width: 100%;
+    height: 80%;
+    padding: 0;
+    margin: 0 auto;
+    top: .5%;
+    text-align: center;
+    z-index: 0;
+    margin-right:-20px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+.Totals-s{
+    position:fixed;
+    bottom:0;
+    margin:0 auto;
+    border:0;
+    width:100%;
+    border-bottom:1px solid #456191d8;
+
+}
+.Totals-s * {
+   
+    border: 0;
+    font-size:18px;
+    font-weight:600;
+}
+.mahdood{
+    text-decoration:underline;
+    width:100%;
+    margin:0;
+    padding:0;
+    text-align:center;
+    font-size:8px;
+    font-weight:bold;
+    display:inline;
+}
+.page, .markedContent {
+    background-color: red !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+#content{
+    
+ 
+}
+
+.div-s {
+    page-break-after: always;
+    page-break-inside: auto;
+    width: 100%;
+    min-height: fit-content;
+}
+ 

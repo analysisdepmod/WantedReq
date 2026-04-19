@@ -1,0 +1,13 @@
+@WantedRec.Server_HostAddress = https://192.168.19.107:1011
+
+ 
+ 
+
+# GET {{WantedRec.Server_HostAddress}}/api/OfficerInfoes/
+# Accept: application/json
+
+# PUT {{WantedRec.Server_HostAddress}}/api/OfficerInfoes/
+# Accept: application/json
+
+# DELETE {{WantedRec.Server_HostAddress}}/api/OfficerInfoes/
+# Accept: application/json

@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.784122">
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <JavaScriptTestRoot>src\</JavaScriptTestRoot>
+    <JavaScriptTestFramework>Jest</JavaScriptTestFramework>
+    <!-- Allows the build (or compile) script located on package.json to run on Build -->
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+    <!-- Folder where production build objects will be placed -->
+    <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="public\FileImage\**" />
+    <None Remove="public\FilePdf\**" />
+    <None Remove="src\NewFolder1\**" />
+    <TypeScriptConfiguration Remove="public\FileImage\**" />
+    <TypeScriptConfiguration Remove="public\FilePdf\**" />
+    <TypeScriptConfiguration Remove="src\NewFolder1\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="app\reducers\authSlice.ts~RF4f2ff13.TMP" />
+    <None Remove="src\5bwxjrre.yai~" />
+    <None Remove="src\pages\TargetsMangeMinistry\ListTargetsMangeMinistry.tsx~RFce9b8a.TMP" />
+  </ItemGroup>
+</Project>

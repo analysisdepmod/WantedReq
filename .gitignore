@@ -1,0 +1,79 @@
+# -------------------
+# ASP.NET Core (Backend)
+# -------------------
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs
+# Visual Studio / VS Code
+*.code-workspace
+.vs/
+# Build results
+build/
+artifacts/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.vspscc
+*.vssscc
+
+# NuGet packages
+*.nupkg
+packages/
+.nuget/
+
+# Rider
+.idea/
+
+# Secrets & configs
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.json
+
+# Dotnet-specific
+project.lock.json
+project.fragment.lock.json
+*.dbmdl
+#*.bak
+#*.sql
+*.mdf
+*.ldf
+
+# -------------------
+# React + TypeScript (Frontend)
+# -------------------
+# Node modules
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime files
+#.env
+#.env.*.local
+*.local
+
+# IDEs and OS
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Optional: lockfiles (if you're not using that manager)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml

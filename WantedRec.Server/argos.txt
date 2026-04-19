@@ -1,0 +1,64 @@
+https://www.nuget.org/packages/ArgosTranslate.PyNet/
+
+
+// To use pythonenet bindings
+serviceCollection.AddArgosTranslatePyNetBindings();
+
+// To use CLI wrapper instead
+serviceCollection.AddArgosTranslateCliBindings();
+// or with additional optional configuration
+serviceCollection.AddArgosTranslateCliBindings(pythonCliOutputEncoding: Encoding.UTF8, useSingleSharedProcessPerModule: false, filterContainingError: ["WARNING"]);
+Console.InputEncoding = Encoding.UTF8; // additionally the input encoding might need to be adjusted
+
+
+var argosTranslateEngineFactory = serviceProvider.GetRequiredService<IArgosTranslateEngineFactory>();
+
+// uses embended python environment, currently embeded only supported on Windows OS
+var engine = argosTranslateEngineFactory.GetEngineWithBuiltInWindowsPython();
+var engine = argosTranslateEngineFactory.GetEngineWithCustomPythonPath(@"https://www.python.org/ftp/python/3.11.5/python-3.11.5-embed-amd64.zip");
+// or depending on the OS by providing the python executable file path and other optional arguments
+var engine = argosTranslateEngineFactory.GetEngineWithCustomPythonPath(@"/usr/bin/python3");
+var engine = argosTranslateEngineFactory.GetEngineWithCustomPythonPath(@"C:\Users\user\AppData\Local\Programs\Python\Python311\python.exe");
+
+
+
+ engine.Initialize(ArgosDeviceType.Cpu);
+
+
+var packageModule = serviceProvider.GetRequiredService<IPackageModule>();
+var translationModule = serviceProvider.GetRequiredService<ITranslationModule>();
+
+
+// downloads remote package index
+await packageModule.UpdatePackageIndexAsync();
+
+// searches for package
+// if the direct package is not found, returns the ephemeral package that allows translation with an intermediate language
+var enToUkPackageToInstall = await packageModule.GetPackageAsync("en", "uk");
+var ukToEnPackageToInstall = await packageModule.GetPackageAsync("uk", "en");
+var enToPlPackageToInstall = await packageModule.GetPackageAsync("en", "pl");
+var plToEnPackageToInstall = await packageModule.GetPackageAsync("pl", "en");
+
+// language enum usage
+var enToEsPackageToInstall = await packageModule.GetPackageAsync(Language.English.GetCode(), Language.Spanish.GetCode());
+var esToEnPackageToInstall = await packageModule.GetPackageAsync(Language.Spanish.GetCode(), Language.English.GetCode());
+
+// packages with an intermediate language, English is the default
+var ukToPlPackageToInstall = await packageModule.GetPackageAsync("uk", "pl", intermediateCode: Language.English.GetCode());
+var plToUkPackageToInstall = await packageModule.GetPackageAsync("pl", "uk", intermediateCode: Language.English.GetCode());
+
+
+
+await packageModule.InstallPackageAsync(ukToPlPackageToInstall);
+await packageModule.InstallPackageAsync(plToUkPackageToInstall);
+
+
+string[] ukrainianTexts =
+[
+    "Привіт!",
+    "Це чудовий день."
+];
+
+var polishTexts = await translationModule.TranslateBatchAsync(ukrainianTexts, Language.Ukrainian.GetCode(), Language.Polish.GetCode());
+// or
+var singleTranslation = await translationModule.TranslateAsync("world",  "en", "uk")
