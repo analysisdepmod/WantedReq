@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import {
     Upload, Button, Card, Row, Col, Typography, Space,
     Image, Progress, Alert, Spin, Tag, Divider,
-    Empty, Tabs, Slider, Badge, message,
+    Empty, Tabs, Slider, Badge, message, InputNumber,
 } from 'antd';
 import type { UploadFile } from 'antd';
 import {
@@ -50,14 +50,23 @@ const scoreColor = (s: number) =>
 const scoreLabel = (s: number) =>
     s >= 0.8 ? 'تطابق عالي' : s >= 0.6 ? 'تطابق متوسط' : 'تطابق ضعيف';
 
-// ── API ───────────────────────────────────────────────────
-const identifyFace = async (file: File): Promise<RecognitionResultDto> => {
+// ── API — خارج الـ component ──────────────────────────────
+const identifyFace = async (
+    file: File,
+    cameraId?: number
+): Promise<RecognitionResultDto> => {
     const form = new FormData();
     form.append('file', file, file.name || 'frame.jpg');
+
     const res = await axios.post<ApiResponse<RecognitionResultDto>>(
         '/recognition/identify',
         form,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                ...(cameraId !== undefined && { 'X-Camera-Id': cameraId.toString() }),
+            },
+        },
     );
     return res.data.data;
 };
@@ -234,12 +243,14 @@ function ResultPanel({
 
 // ────────────────────────────────────────────────────────
 export default function RecognitionPage() {
+
     const [messageApi, contextHolder] = message.useMessage();
     const [activeTab, setActiveTab] = useState('upload');
 
     // ── Upload State ──────────────────────────────────────
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
+    const [uploadResult, setUploadResult] = useState<RecognitionResultDto | null>(null);
 
     const { mutate: identify, isPending: uploadPending,
         error: uploadError, reset: uploadReset } = useMutation({
@@ -247,7 +258,6 @@ export default function RecognitionPage() {
             onSuccess: (data) => setUploadResult(data),
             onError: () => messageApi.error('فشل التعرف'),
         });
-    const [uploadResult, setUploadResult] = useState<RecognitionResultDto | null>(null);
 
     const handleUpload = (file: File): false => {
         setPreviewUrl(URL.createObjectURL(file));
@@ -270,7 +280,41 @@ export default function RecognitionPage() {
     const [liveResult, setLiveResult] = useState<RecognitionResultDto | null>(null);
     const [livePending, setLivePending] = useState(false);
     const [frameCount, setFrameCount] = useState(0);
+    const [cameraId, setCameraId] = useState<number>(1);
 
+    // ── Capture & Identify ────────────────────────────────
+    const captureAndIdentify = useCallback(async () => {
+        if (isRunning.current) return;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (!video || !canvas || video.readyState < 2) return;
+
+        isRunning.current = true;
+        setLivePending(true);
+
+        try {
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            canvas.getContext('2d')?.drawImage(video, 0, 0);
+
+            const blob = await new Promise<Blob | null>((res) =>
+                canvas.toBlob(res, 'image/jpeg', 0.85)
+            );
+            if (!blob) return;
+
+            const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
+            const data = await identifyFace(file, cameraId);
+
+            setLiveResult(data);
+            setFrameCount((c) => c + 1);
+        } catch { /* تجاهل أخطاء الـ live */ }
+        finally {
+            isRunning.current = false;
+            setLivePending(false);
+        }
+    }, [cameraId]);
+
+    // ── Camera Controls ───────────────────────────────────
     const startCamera = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -287,49 +331,6 @@ export default function RecognitionPage() {
         }
     };
 
-    const stopCamera = useCallback(() => {
-        stopLive();
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        setCameraOn(false);
-        setLiveResult(null);
-    }, []);
-
-    const captureAndIdentify = useCallback(async () => {
-        if (isRunning.current) return;
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!video || !canvas || video.readyState < 2) return;
-
-        isRunning.current = true;
-        setLivePending(true);
-        try {
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            canvas.getContext('2d')?.drawImage(video, 0, 0);
-            const blob = await new Promise<Blob | null>((res) =>
-                canvas.toBlob(res, 'image/jpeg', 0.85)
-            );
-            if (!blob) return;
-            const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
-            const data = await identifyFace(file);
-            setLiveResult(data);
-            setFrameCount((c) => c + 1);
-        } catch { /* تجاهل أخطاء الـ live */ }
-        finally {
-            isRunning.current = false;
-            setLivePending(false);
-        }
-    }, []);
-
-    const startLive = useCallback(() => {
-        if (!cameraOn) return;
-        setLiveOn(true);
-        setFrameCount(0);
-        captureAndIdentify();
-        intervalRef.current = setInterval(captureAndIdentify, intervalSec * 1000);
-    }, [cameraOn, intervalSec, captureAndIdentify]);
-
     const stopLive = useCallback(() => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -340,13 +341,29 @@ export default function RecognitionPage() {
         setLivePending(false);
     }, []);
 
+    const stopCamera = useCallback(() => {
+        stopLive();
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        setCameraOn(false);
+        setLiveResult(null);
+    }, [stopLive]);
+
+    const startLive = useCallback(() => {
+        if (!cameraOn) return;
+        setLiveOn(true);
+        setFrameCount(0);
+        captureAndIdentify();
+        intervalRef.current = setInterval(captureAndIdentify, intervalSec * 1000);
+    }, [cameraOn, intervalSec, captureAndIdentify]);
+
     // تحديث الـ interval لما يتغير وهو شغال
     useEffect(() => {
         if (liveOn) {
             if (intervalRef.current) clearInterval(intervalRef.current);
             intervalRef.current = setInterval(captureAndIdentify, intervalSec * 1000);
         }
-    }, [intervalSec]);
+    }, [intervalSec, captureAndIdentify, liveOn]);
 
     // cleanup عند مغادرة الصفحة
     useEffect(() => {
@@ -354,7 +371,7 @@ export default function RecognitionPage() {
             stopLive();
             streamRef.current?.getTracks().forEach((t) => t.stop());
         };
-    }, []);
+    }, [stopLive]);
 
     // إيقاف الكاميرا عند تغيير التبويب
     const handleTabChange = (key: string) => {
@@ -483,7 +500,6 @@ export default function RecognitionPage() {
                                             alignItems: 'center', justifyContent: 'center',
                                             position: 'relative',
                                         }}>
-                                            {/* ✅ video دائماً في DOM */}
                                             <video
                                                 ref={videoRef}
                                                 autoPlay playsInline muted
@@ -510,6 +526,20 @@ export default function RecognitionPage() {
                                                     <Text style={{ color: '#aaa' }}>افتح الكاميرا للبدء</Text>
                                                 </div>
                                             )}
+                                        </div>
+
+                                        {/* رقم الكاميرا */}
+                                        <div style={{ marginBottom: 12 }}>
+                                            <Space>
+                                                <Text strong>رقم الكاميرا:</Text>
+                                                <InputNumber
+                                                    min={1}
+                                                    value={cameraId}
+                                                    onChange={(v) => setCameraId(v ?? 1)}
+                                                    disabled={liveOn}
+                                                    style={{ width: 80 }}
+                                                />
+                                            </Space>
                                         </div>
 
                                         {/* أزرار التحكم */}

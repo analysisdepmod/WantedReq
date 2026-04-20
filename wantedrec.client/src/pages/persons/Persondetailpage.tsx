@@ -32,9 +32,8 @@ export default function PersonDetailPage() {
         enabled: !!personId && !isNaN(personId),
     });
 
-    useEffect(() => {
-        console.log("Persons",person)
-    }, [person])
+
+
     // ── Loading ──────────────────────────────────────────────
     if (isLoading) {
         return (

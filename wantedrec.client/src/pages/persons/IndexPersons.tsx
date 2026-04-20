@@ -94,6 +94,20 @@ export default function IndexPersons() {
             ),
         },
         {
+            title: 'التعرفات',
+            dataIndex: 'recognitionCount',
+            width: 90,
+            align: 'center',
+            render: (count: number) => (
+                <Badge
+                    count={count}
+                    showZero
+                    color={count > 0 ? '#52c41a' : '#ccc'}
+                    overflowCount={999}
+                />
+            ),
+        },
+        {
             title: 'الحالة',
             dataIndex: 'isActive',
             width: 90,
