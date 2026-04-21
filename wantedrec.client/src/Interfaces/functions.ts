@@ -352,3 +352,31 @@ export const base64ToFile = (base64: string, fileName: string, mimeType: string 
     const blob = new Blob([byteArray], { type: mimeType });
     return new File([blob], fileName, { type: mimeType });
 };
+
+export const ValidFile = (file: File, allowedTypes: string[] = ["image/jpeg", "image/png"], maxSize: number = 5 * 1024 * 1024) => {
+
+    if (!file) {
+        console.log("ما اختار فايل");
+        return false;
+    }
+
+    // تحقق إذا الفايل فارغ
+    if (file.size === 0) {
+        console.log("الفايل فارغ");
+        return false;
+    }
+
+    // تحقق من النوع (مثلاً PDF أو صورة)
+    //const allowedTypes = [ "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+        console.log("نوع الفايل مو صالح");
+        return false;
+    }
+
+    // تحقق من الحجم الأقصى (مثلاً 5MB)
+    //const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+        console.log("الفايل أكبر من المسموح");
+        return false;
+    }
+}

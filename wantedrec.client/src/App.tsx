@@ -47,6 +47,10 @@ import AddPersonPage from './pages/persons/AddPersonPage';
 import PersonDetailPage from './pages/persons/Persondetailpage';
 import Recognitions from './pages/recognition/RecognitionPage';
 import RecognitionPage from './pages/recognition/RecognitionPage';
+import CamerasPage from './pages/cameras/CamerasPage';
+import RecognitionResultsPage from './pages/recognition/RecognitionResultsPage';
+import CameraDetailPage from './pages/cameras/CameraDetailPage';
+import PersonRecognitionsPage from './pages/recognition/PersonRecognitionsPage';
 
  
  
@@ -117,6 +121,10 @@ function App() {
                     <Route path='editperson/:id' element={<EditPerson />} />        // ✅ غيّرنا المسار
                     {/*<Route path='Recognitions/' element={<Recognitions />} /> */}
                     <Route path='RecognitionPage' element={<RecognitionPage />} />
+                    <Route path="/cameras" element={<CamerasPage />} />
+                    <Route path="/recognition/person/:personId" element={<PersonRecognitionsPage />} />
+                    <Route path="/cameras/:id" element={<CameraDetailPage />} />
+                    <Route path="/recognition/results" element={<RecognitionResultsPage />} />
 
                     <Route path='/' element={<PrivateRoute allowedRules={[RULES.Admin,  RULES.Reader, RULES.Reports, RULES.RajManager, RULES.Manager, RULES.AllUnits,RULES.News,RULES.Gools,RULES.Musadaqa]} />}>
                        

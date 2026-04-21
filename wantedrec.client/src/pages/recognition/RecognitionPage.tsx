@@ -1,10 +1,11 @@
 ﻿import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
     Upload, Button, Card, Row, Col, Typography, Space,
     Image, Progress, Alert, Spin, Tag, Divider,
     Empty, Tabs, Slider, Badge, message, InputNumber,
+    Select,
 } from 'antd';
 import type { UploadFile } from 'antd';
 import {
@@ -15,6 +16,7 @@ import {
 } from '@ant-design/icons';
 import type { ApiResponse } from '../../types/person.types';
 import axios from '../../api';
+import { ValidFile } from '../../Interfaces/functions';
 
 const { Title, Text } = Typography;
 
@@ -28,20 +30,10 @@ interface PersonListItemDto {
     gender: number;
 }
 
-interface RecognitionFaceDto {
-    bbox: number[];
-    name: string;
-    score: number;
-    isKnown: boolean;
-    person?: PersonListItemDto;
-    primaryImageBase64?: string;
-}
-
-interface RecognitionResultDto {
-    faces: RecognitionFaceDto[];
-    totalFaces: number;
-    knownFaces: number;
-}
+ 
+ 
+import type { RecognitionFaceDto, LiveRecognitionResultDto } from '../../types/camera.types';
+import { getCameras } from '../../api/camerasApi';
 
 // ── Helpers ──────────────────────────────────────────────
 const scoreColor = (s: number) =>
@@ -51,14 +43,14 @@ const scoreLabel = (s: number) =>
     s >= 0.8 ? 'تطابق عالي' : s >= 0.6 ? 'تطابق متوسط' : 'تطابق ضعيف';
 
 // ── API — خارج الـ component ──────────────────────────────
-const identifyFace = async (
-    file: File,
-    cameraId?: number
-): Promise<RecognitionResultDto> => {
+const identifyFace = async (file: File, cameraId?: number): Promise<LiveRecognitionResultDto> => {
+
+  //  if (ValidFile(file) === false) return { faces: [] } as LiveRecognitionResultDto;
+
     const form = new FormData();
     form.append('file', file, file.name || 'frame.jpg');
 
-    const res = await axios.post<ApiResponse<RecognitionResultDto>>(
+    const res = await axios.post<ApiResponse<LiveRecognitionResultDto>>(
         '/recognition/identify',
         form,
         {
@@ -79,9 +71,9 @@ function ResultPanel({
     cameraMode = false,
     frameCount = 0,
 }: {
-    result: RecognitionResultDto | null;
+    result: LiveRecognitionResultDto | null;
     isPending: boolean;
-    error?: unknown;
+    error?: any;
     cameraMode?: boolean;
     frameCount?: number;
 }) {
@@ -250,7 +242,12 @@ export default function RecognitionPage() {
     // ── Upload State ──────────────────────────────────────
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [capturedFile, setCapturedFile] = useState<File | null>(null);
-    const [uploadResult, setUploadResult] = useState<RecognitionResultDto | null>(null);
+    const [uploadResult, setUploadResult] = useState<LiveRecognitionResultDto | null>(null);
+
+    const { data: cameras = [] } = useQuery({
+        queryKey: ['cameras'],
+        queryFn: () => getCameras({ isActive: true }),
+    });
 
     const { mutate: identify, isPending: uploadPending,
         error: uploadError, reset: uploadReset } = useMutation({
@@ -277,7 +274,7 @@ export default function RecognitionPage() {
     const [cameraOn, setCameraOn] = useState(false);
     const [liveOn, setLiveOn] = useState(false);
     const [intervalSec, setIntervalSec] = useState(2);
-    const [liveResult, setLiveResult] = useState<RecognitionResultDto | null>(null);
+    const [liveResult, setLiveResult] = useState<LiveRecognitionResultDto | null>(null);
     const [livePending, setLivePending] = useState(false);
     const [frameCount, setFrameCount] = useState(0);
     const [cameraId, setCameraId] = useState<number>(1);
@@ -532,12 +529,12 @@ export default function RecognitionPage() {
                                         <div style={{ marginBottom: 12 }}>
                                             <Space>
                                                 <Text strong>رقم الكاميرا:</Text>
-                                                <InputNumber
-                                                    min={1}
+                                                <Select
                                                     value={cameraId}
-                                                    onChange={(v) => setCameraId(v ?? 1)}
+                                                    onChange={setCameraId}
                                                     disabled={liveOn}
-                                                    style={{ width: 80 }}
+                                                    options={cameras.map(c => ({ value: c.cameraId, label: `${c.name} — ${c.area ?? ''}` }))}
+                                                    style={{ width: 200 }}
                                                 />
                                             </Space>
                                         </div>
