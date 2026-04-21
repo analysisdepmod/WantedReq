@@ -1,17 +1,18 @@
 ﻿// ════════════════════════════════════════════════════════
-//  src/pages/cameras/CamerasPage.tsx   —  Route: /cameras
+//  src/pages/cameras/CamerasPage.tsx  —  Route: /cameras
 // ════════════════════════════════════════════════════════
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Row, Col, Button, Typography, Space, Switch, Spin, Tooltip, message } from 'antd';
+import { Row, Col, Button, Typography, Space, Switch, Spin, Tooltip, message, Tag } from 'antd';
 import {
     VideoCameraOutlined, ReloadOutlined, EnvironmentOutlined,
     WifiOutlined, FundViewOutlined, HomeOutlined, GlobalOutlined,
-    ThunderboltOutlined,
+    ThunderboltOutlined, PlayCircleOutlined,
 } from '@ant-design/icons';
 import { getCameras, activateCamera, deactivateCamera } from '../../api/camerasApi';
 import type { CameraDto } from '../../types/camera.types';
+import { detectCameraKind } from '../../types/camera.types';
 
 const { Title, Text } = Typography;
 
@@ -36,9 +37,14 @@ const CSS = `
   .cam-card.on { border-color:#b7eb8f; background:linear-gradient(150deg,#f6ffed,#fff); }
 `;
 
-function Chip({ label, value, color, bg }: { label: string; value: number | string; color: string; bg: string }) {
+function Chip({ label, value, color, bg }: {
+    label: string; value: number | string; color: string; bg: string;
+}) {
     return (
-        <div style={{ background: bg, border: '1px solid #e6eaf0', borderRadius: 10, padding: '7px 18px', textAlign: 'center', minWidth: 80 }}>
+        <div style={{
+            background: bg, border: '1px solid #e6eaf0',
+            borderRadius: 10, padding: '7px 18px', textAlign: 'center', minWidth: 80,
+        }}>
             <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
             <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 3 }}>{label}</div>
         </div>
@@ -48,10 +54,25 @@ function Chip({ label, value, color, bg }: { label: string; value: number | stri
 function CameraCard({ camera, index, onToggle, toggling }: {
     camera: CameraDto; index: number; onToggle: () => void; toggling: boolean;
 }) {
+    const kind = detectCameraKind(camera);
+    const kindLabel = {
+        'local': { text: 'محلية', color: '#1677ff' },
+        'ip-mjpeg': { text: 'MJPEG', color: '#722ed1' },
+        'ip-rtsp': { text: 'RTSP', color: '#eb2f96' },
+    }[kind];
+
     return (
         <div className={`cam-card${camera.isActive ? ' on' : ''}`}
             style={{ animation: `slideUp .35s ease ${index * .05}s both` }}>
-
+            // بعد زر التحديث في الهيدر أضف:
+            <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                onClick={() => window.open('/cameras/monitor', '_blank')}
+                style={{ height: 38, borderRadius: 9, background: '#52c41a', borderColor: '#52c41a' }}
+            >
+                المراقبة المباشرة
+            </Button>
             {/* Top */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{
@@ -60,7 +81,9 @@ function CameraCard({ camera, index, onToggle, toggling }: {
                     border: `1px solid ${camera.isActive ? '#b7eb8f' : '#e6eaf0'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                    <VideoCameraOutlined style={{ fontSize: 19, color: camera.isActive ? '#52c41a' : '#bfbfbf' }} />
+                    <VideoCameraOutlined style={{
+                        fontSize: 19, color: camera.isActive ? '#52c41a' : '#bfbfbf',
+                    }} />
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -83,8 +106,24 @@ function CameraCard({ camera, index, onToggle, toggling }: {
 
             {/* Name */}
             <div>
-                <Text strong style={{ fontSize: 14, color: '#1a1a2e', display: 'block' }}>{camera.name}</Text>
-                {camera.code && <Text style={{ color: '#8c8c8c', fontSize: 11, fontFamily: 'monospace' }}>#{camera.code}</Text>}
+                <Text strong style={{ fontSize: 14, color: '#1a1a2e', display: 'block' }}>
+                    {camera.name}
+                </Text>
+                <div style={{ display: 'flex', gap: 5, marginTop: 3 }}>
+                    {/* نوع الكاميرا */}
+                    <Tag style={{
+                        fontSize: 10, margin: 0, padding: '0 6px',
+                        background: `${kindLabel.color}12`,
+                        borderColor: `${kindLabel.color}44`,
+                        color: kindLabel.color,
+                    }}>
+                        {kind === 'local' ? <HomeOutlined style={{ marginLeft: 2 }} /> : <WifiOutlined style={{ marginLeft: 2 }} />}
+                        {kindLabel.text}
+                        {kind === 'local' && camera.localDeviceIndex !== undefined && (
+                            <span style={{ marginRight: 3, opacity: .7 }}> [{camera.localDeviceIndex}]</span>
+                        )}
+                    </Tag>
+                </div>
             </div>
 
             {/* Meta */}
@@ -96,8 +135,21 @@ function CameraCard({ camera, index, onToggle, toggling }: {
                     </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <WifiOutlined style={{ color: '#8c8c8c', fontSize: 12 }} />
-                    <Text style={{ color: '#595959', fontSize: 12, fontFamily: 'monospace' }}>{camera.ipAddress}</Text>
+                    {kind === 'local' ? (
+                        <>
+                            <HomeOutlined style={{ color: '#1677ff', fontSize: 12 }} />
+                            <Text style={{ color: '#595959', fontSize: 12 }}>
+                                جهاز محلي — index {camera.localDeviceIndex ?? 0}
+                            </Text>
+                        </>
+                    ) : (
+                        <>
+                            <WifiOutlined style={{ color: '#8c8c8c', fontSize: 12 }} />
+                            <Text style={{ color: '#595959', fontSize: 12, fontFamily: 'monospace' }}>
+                                {camera.ipAddress}
+                            </Text>
+                        </>
+                    )}
                 </div>
                 <div style={{ marginTop: 2 }}>
                     {camera.isIndoor
@@ -122,7 +174,7 @@ function CameraCard({ camera, index, onToggle, toggling }: {
                     onClick={() => window.open(`/cameras/${camera.cameraId}`, '_blank')}
                     style={{ flex: 1, height: 28, borderRadius: 8, fontSize: 12 }}
                 >
-                    فتح الكاميرا
+                    فتح منفردة
                 </Button>
             </div>
         </div>
@@ -154,6 +206,8 @@ export default function CamerasPage() {
 
     const active = cameras.filter(c => c.isActive).length;
     const inactive = cameras.length - active;
+    const local = cameras.filter(c => !c.streamUrl).length;
+    const ip = cameras.length - local;
 
     return (
         <>
@@ -181,7 +235,7 @@ export default function CamerasPage() {
                                 مركز إدارة الكاميرات
                             </Title>
                             <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
-                                مراقبة وتشغيل جميع كاميرات نظام التعرف على الوجه
+                                تشغيل وإيقاف وإدارة جميع الكاميرات
                             </Text>
                         </div>
                     </Space>
@@ -190,10 +244,26 @@ export default function CamerasPage() {
                         <Chip label="الإجمالي" value={cameras.length} color="#1a1a2e" bg="#f5f5f5" />
                         <Chip label="نشطة" value={active} color="#389e0d" bg="#f6ffed" />
                         <Chip label="متوقفة" value={inactive} color="#cf1322" bg="#fff1f0" />
+                        <Chip label="محلية" value={local} color="#1677ff" bg="#e6f4ff" />
+                        <Chip label="IP" value={ip} color="#722ed1" bg="#f9f0ff" />
+
                         <Tooltip title="تحديث">
                             <Button icon={<ReloadOutlined spin={isFetching} />}
                                 onClick={() => refetch()} style={{ height: 38, borderRadius: 9 }} />
                         </Tooltip>
+
+                        {/* ← زر المراقبة المباشرة */}
+                        <Button
+                            type="primary"
+                            icon={<PlayCircleOutlined />}
+                            onClick={() => window.open('/cameras/monitor', '_blank')}
+                            style={{
+                                height: 38, borderRadius: 9,
+                                background: '#52c41a', borderColor: '#52c41a',
+                            }}
+                        >
+                            المراقبة المباشرة
+                        </Button>
                     </Space>
                 </div>
 

@@ -1,6 +1,5 @@
 ﻿// ════════════════════════════════════════════════════════
 //  src/types/camera.types.ts
-//  ضعه في: src/types/camera.types.ts
 // ════════════════════════════════════════════════════════
 
 import type { PersonListItemDto } from './person.types';
@@ -15,23 +14,37 @@ export interface CameraDto {
     area?: string;
     isIndoor: boolean;
     isActive: boolean;
+    /** null=local | "http://..."=MJPEG | "rtsp://..."=RTSP */
+    streamUrl?: string;
+    /** رقم جهاز الكاميرا المحلية (0,1,2...) — يُستخدم لو streamUrl=null */
+    localDeviceIndex?: number;
 }
 
 export interface CameraDetailDto extends CameraDto {
     description?: string;
-    streamUrl?: string;
     latitude?: number;
     longitude?: number;
     floor?: string;
     installationDate?: string;
     lastMaintenanceDate?: string;
     notes?: string;
+    // إحصائيات
+    recognitionsToday: number;
+    totalRecognitions: number;
+    lastRecognitionAt?: string;
 }
 
-// ── Live Recognition (POST /recognition/identify) ────────
+// ── Camera kind helper ────────────────────────────────────
 
- 
- 
+export type CameraKind = 'local' | 'ip-mjpeg' | 'ip-rtsp';
+
+export function detectCameraKind(cam: CameraDto): CameraKind {
+    if (!cam.streamUrl) return 'local';
+    if (cam.streamUrl.toLowerCase().startsWith('rtsp://')) return 'ip-rtsp';
+    return 'ip-mjpeg';
+}
+
+// ── Live Recognition ──────────────────────────────────────
 
 export interface RecognitionFaceDto {
     bbox: number[];
@@ -48,7 +61,7 @@ export interface LiveRecognitionResultDto {
     knownFaces: number;
 }
 
-// ── Recognition History (GET /recognitions) ──────────────
+// ── Recognition History ───────────────────────────────────
 
 export enum RecognitionStatus {
     Pending = 0,

@@ -1,7 +1,7 @@
 ﻿// ════════════════════════════════════════════════════════
 //  WantedRec.Server/Services/CameraService.cs
 //
-//  ⚠️  سجّل في Program.cs:
+//  سجّل في Program.cs:
 //      builder.Services.AddScoped<ICameraService, CameraService>();
 // ════════════════════════════════════════════════════════
 
@@ -12,9 +12,7 @@ namespace WantedRec.Server.Services
         private readonly ApplicationDbContext _context;
         private readonly ILogger<CameraService> _logger;
 
-        public CameraService(
-            ApplicationDbContext context,
-            ILogger<CameraService> logger)
+        public CameraService(ApplicationDbContext context, ILogger<CameraService> logger)
         {
             _context = context;
             _logger = logger;
@@ -42,6 +40,8 @@ namespace WantedRec.Server.Services
                     Area = c.Area,
                     IsIndoor = c.IsIndoor,
                     IsActive = c.IsActive,
+                    StreamUrl = c.StreamUrl,
+                    LocalDeviceIndex = c.LocalDeviceIndex,
                 })
                 .ToListAsync(ct);
         }
@@ -51,11 +51,10 @@ namespace WantedRec.Server.Services
             int id,
             CancellationToken ct = default)
         {
-            var cam = await _context.Cameras
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CameraId == id, ct);
+            var c = await _context.Cameras.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.CameraId == id, ct);
 
-            return cam is null ? null : ToDetail(cam);
+            return c is null ? null : ToDetail(c);
         }
 
         // ── CreateAsync ───────────────────────────────────────
@@ -65,13 +64,14 @@ namespace WantedRec.Server.Services
         {
             var camera = new Camera();
             Apply(camera, dto);
-
             _context.Cameras.Add(camera);
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation(
-                "Camera created → Id:{Id} | Name:{Name} | IP:{IP}",
-                camera.CameraId, camera.Name, camera.IpAddress);
+                "Camera created → Id:{Id} | Name:{Name} | Type:{Type}",
+                camera.CameraId, camera.Name,
+                camera.StreamUrl is null ? "local" :
+                camera.StreamUrl.StartsWith("rtsp") ? "rtsp" : "mjpeg");
 
             return ToDetail(camera);
         }
@@ -87,32 +87,21 @@ namespace WantedRec.Server.Services
 
             Apply(camera, dto);
             await _context.SaveChangesAsync(ct);
-
-            _logger.LogInformation(
-                "Camera updated → Id:{Id} | Name:{Name}",
-                camera.CameraId, camera.Name);
-
+            _logger.LogInformation("Camera updated → Id:{Id}", id);
             return ToDetail(camera);
         }
 
         // ── DeleteAsync ───────────────────────────────────────
-        public async Task<bool> DeleteAsync(
-            int id,
-            CancellationToken ct = default)
+        public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var camera = await _context.Cameras.FindAsync([id], ct);
             if (camera is null) return false;
 
-            // تحقق لو في recognitions مرتبطة
-            var hasRecognitions = await _context.Recognitions
-                .AnyAsync(r => r.CameraId == id, ct);
-
+            var hasRecognitions = await _context.Recognitions.AnyAsync(r => r.CameraId == id, ct);
             if (hasRecognitions)
             {
-                // soft delete: نعطلها بدل الحذف لو في بيانات مرتبطة
                 camera.IsActive = false;
-                _logger.LogWarning(
-                    "Camera {Id} has recognitions — deactivated instead of deleted", id);
+                _logger.LogWarning("Camera {Id} deactivated (has recognitions)", id);
             }
             else
             {
@@ -120,35 +109,25 @@ namespace WantedRec.Server.Services
             }
 
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("Camera {Id} processed (delete/deactivate)", id);
             return true;
         }
 
         // ── SetActiveAsync ────────────────────────────────────
-        public async Task<bool> SetActiveAsync(
-            int id,
-            bool isActive,
-            CancellationToken ct = default)
+        public async Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default)
         {
             var camera = await _context.Cameras.FindAsync([id], ct);
             if (camera is null) return false;
 
             camera.IsActive = isActive;
             await _context.SaveChangesAsync(ct);
-
-            _logger.LogInformation(
-                "Camera {Id} → IsActive={IsActive}", id, isActive);
-
+            _logger.LogInformation("Camera {Id} → IsActive={v}", id, isActive);
             return true;
         }
 
         // ── GetStatsAsync ─────────────────────────────────────
-        public async Task<CameraStatsDto> GetStatsAsync(
-            int id,
-            CancellationToken ct = default)
+        public async Task<CameraStatsDto> GetStatsAsync(int id, CancellationToken ct = default)
         {
             var today = DateTime.Today;
-
             var stats = await _context.Recognitions
                 .AsNoTracking()
                 .Where(r => r.CameraId == id)
@@ -170,10 +149,9 @@ namespace WantedRec.Server.Services
         }
 
         // ══════════════════════════════════════════════════════
-        //  Private helpers
+        //  Helpers
         // ══════════════════════════════════════════════════════
 
-        /// <summary>تطبيق قيم الـ DTO على الـ Entity</summary>
         private static void Apply(Camera target, CameraUpsertDto src)
         {
             target.Name = src.Name;
@@ -181,6 +159,7 @@ namespace WantedRec.Server.Services
             target.Description = src.Description;
             target.IpAddress = src.IpAddress;
             target.StreamUrl = src.StreamUrl;
+            target.LocalDeviceIndex = src.LocalDeviceIndex;
             target.Latitude = src.Latitude;
             target.Longitude = src.Longitude;
             target.Floor = src.Floor;
@@ -192,7 +171,6 @@ namespace WantedRec.Server.Services
             target.Notes = src.Notes;
         }
 
-        /// <summary>تحويل Entity إلى DetailDto</summary>
         private static CameraDetailDto ToDetail(Camera c) => new()
         {
             CameraId = c.CameraId,
@@ -202,8 +180,9 @@ namespace WantedRec.Server.Services
             Area = c.Area,
             IsIndoor = c.IsIndoor,
             IsActive = c.IsActive,
-            Description = c.Description,
             StreamUrl = c.StreamUrl,
+            LocalDeviceIndex = c.LocalDeviceIndex,
+            Description = c.Description,
             Latitude = c.Latitude,
             Longitude = c.Longitude,
             Floor = c.Floor,

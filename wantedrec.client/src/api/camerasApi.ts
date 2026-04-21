@@ -1,40 +1,31 @@
 ﻿// ════════════════════════════════════════════════════════
 //  src/api/camerasApi.ts
-//  ضعه في: src/api/camerasApi.ts
-//
-//  ⚠️  يحتاج CameraController في الباكايند بهذه الـ Endpoints:
-//      GET  /api/cameras
-//      GET  /api/cameras/{id}
-//      PUT  /api/cameras/{id}/activate
-//      PUT  /api/cameras/{id}/deactivate
 // ════════════════════════════════════════════════════════
 
-import axiosInstance from '../api';
+import axiosInstance, { BASIC_URL } from '../api';
 import type { ApiResponse } from '../types/person.types';
 import type { CameraDto, CameraDetailDto } from '../types/camera.types';
 
-/** جلب كل الكاميرات — اختياري: فلتر بالحالة */
-export const getCameras = async (params?: {
-    isActive?: boolean;
-}): Promise<CameraDto[]> => {
-    const res = await axiosInstance.get<ApiResponse<CameraDto[]>>('/camera', { params });
-
-    console.log("Cameras:",res.data.data);
+export const getCameras = async (params?: { isActive?: boolean }): Promise<CameraDto[]> => {
+    const res = await axiosInstance.get<ApiResponse<CameraDto[]>>('/cameras', { params });
     return res.data.data;
 };
 
-/** جلب كاميرا واحدة بالتفاصيل */
 export const getCameraById = async (id: number): Promise<CameraDetailDto> => {
     const res = await axiosInstance.get<ApiResponse<CameraDetailDto>>(`/cameras/${id}`);
     return res.data.data;
 };
 
-/** تفعيل الكاميرا */
-export const activateCamera = async (id: number): Promise<void> => {
-    await axiosInstance.put<ApiResponse<boolean>>(`/cameras/${id}/activate`);
-};
+export const activateCamera = async (id: number) =>
+    axiosInstance.put(`/cameras/${id}/activate`);
 
-/** تعطيل الكاميرا */
-export const deactivateCamera = async (id: number): Promise<void> => {
-    await axiosInstance.put<ApiResponse<boolean>>(`/cameras/${id}/deactivate`);
-};
+export const deactivateCamera = async (id: number) =>
+    axiosInstance.put(`/cameras/${id}/deactivate`);
+
+/**
+ * رابط snapshot للكاميرات البعيدة (RTSP/MJPEG).
+ * يُستخدم في <img src={snapshotUrl(id)} />  أو fetch كل X ثانية.
+ * يُضيف timestamp لمنع الـ browser cache.
+ */
+export const snapshotUrl = (id: number, ts?: number): string =>
+    `${BASIC_URL}/cameras/${id}/snapshot?t=${ts ?? Date.now()}`;

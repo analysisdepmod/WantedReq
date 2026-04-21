@@ -6,9 +6,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace WantedRec.Server.DTOs
 {
-    /// <summary>
-    /// يُستخدم لإنشاء كاميرا جديدة أو تحديث كاميرا موجودة (POST / PUT)
-    /// </summary>
     public class CameraUpsertDto
     {
         [Required(ErrorMessage = "اسم الكاميرا مطلوب")]
@@ -21,12 +18,23 @@ namespace WantedRec.Server.DTOs
         [MaxLength(500)]
         public string? Description { get; set; }
 
-        [Required(ErrorMessage = "عنوان IP مطلوب")]
+        /// <summary>
+        /// "local" للكاميرات المحلية، أو عنوان IP للكاميرات البعيدة.
+        /// </summary>
         [MaxLength(100)]
-        public string IpAddress { get; set; } = null!;
+        public string IpAddress { get; set; } = "local";
 
+        /// <summary>
+        /// null = كاميرا محلية | "http://..." = MJPEG | "rtsp://..." = RTSP
+        /// </summary>
         [MaxLength(500)]
         public string? StreamUrl { get; set; }
+
+        /// <summary>
+        /// رقم الجهاز المحلي — يُستخدم فقط لو StreamUrl = null.
+        /// 0 = أول كاميرا، 1 = ثانية، إلخ.
+        /// </summary>
+        public int? LocalDeviceIndex { get; set; }
 
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
