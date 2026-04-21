@@ -11,6 +11,7 @@
 
         public int FaceImagesCount { get; set; }
         public bool HasSuspectRecord { get; set; }
+        public int RecognitionCount { get; set; }
     }
 
 }

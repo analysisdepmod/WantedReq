@@ -141,6 +141,7 @@ export interface PersonListItemDto {
     isDeleted: boolean;
     faceImagesCount: number;
     hasSuspectRecord: boolean;
+    recognitionCount: number;  
 }
 
 // ── API Response Wrapper ─────────────────────────────────

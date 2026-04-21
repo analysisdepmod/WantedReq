@@ -183,6 +183,21 @@ function MainLayout() {
             {t('recognizepage')}
         </Link>), '801'),
 
+        getItem((<Link to="/cameras" className='d'  >
+            <UsergroupAddOutlined style={{ color: '#C3263E' }} />&nbsp;
+            {t('cameraspage')}
+        </Link>), '802'),
+
+
+        getItem((<Link to="/recognition/results" className='d'  >
+            <UsergroupAddOutlined style={{ color: '#C3263E' }} />&nbsp;
+            {t('recognitionresults')}
+        </Link>), '803'),
+
+
+
+
+        
 
         (RagManager || Admin || News || Tarmez) ? getItem(<h1 className='d'>{t('systemMangment')}  </h1>, "", <InsertRowRightOutlined style={{ color: '#C7253E' }} />,
             [

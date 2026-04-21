@@ -231,7 +231,9 @@
         }
 
         // ─────────────────────────────────────────────
-        //  GET BY ID
+        //
+        //
+        //  BY ID
         // ─────────────────────────────────────────────
         public async Task<PersonDetailDto?> GetByIdAsync(
             int personId,
@@ -283,7 +285,10 @@
                 .AsNoTracking()
                 .Include(p => p.FaceImages)
                 .Include(p => p.Suspect)
+                .Include(p => p.Recognitions)
                 .AsQueryable();
+
+
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -300,11 +305,13 @@
             if (isDeleted.HasValue)
                 query = query.Where(p => p.IsDeleted == isDeleted.Value);
 
-            return await query
+            var data= await query
                 .OrderByDescending(p => p.CreatedAt)
                 .ThenBy(p => p.FullName)
                 .ProjectTo<PersonListItemDto>(_mapper.ConfigurationProvider)
                 .ToListAsync(cancellationToken);
+
+            return data;
         }
 
         // ─────────────────────────────────────────────

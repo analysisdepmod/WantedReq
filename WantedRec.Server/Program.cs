@@ -12,6 +12,11 @@ using Python.Runtime;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<JWT>(builder.Configuration.GetSection("JWT"));
 
+
+
+builder.Services.AddScoped<ICameraService, CameraService>();
+
+
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<ApplicationDbContext>(opt =>
 {

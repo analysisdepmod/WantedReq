@@ -421,6 +421,9 @@ namespace WantedRec.Server.Migrations
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
 
+                    b.Property<int?>("LocalDeviceIndex")
+                        .HasColumnType("int");
+
                     b.Property<double?>("Longitude")
                         .HasColumnType("float");
 

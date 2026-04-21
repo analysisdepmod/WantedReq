@@ -12,8 +12,8 @@ export const getPersons = async (params?: {
     search?: string;
     isActive?: boolean;
     isDeleted?: boolean;
-}): Promise<PersonListItemDto[]> => {
-    const res = await axios.get<ApiResponse<PersonListItemDto[]>>('/persons', { params });
+})    => {
+    const res = await axios.get('/persons', { params });
     return res.data.data;
 };
 

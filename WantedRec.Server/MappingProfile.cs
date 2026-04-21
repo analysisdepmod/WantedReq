@@ -13,7 +13,10 @@ public class MappingProfile : Profile
             .ForMember(d => d.FaceImagesCount,
                 opt => opt.MapFrom(s => s.FaceImages.Count))
             .ForMember(d => d.HasSuspectRecord,
-                opt => opt.MapFrom(s => s.Suspect != null));
+                opt => opt.MapFrom(s => s.Suspect != null))
+            .ForMember(d => d.RecognitionCount,       
+                opt => opt.MapFrom(s => s.Recognitions.Count));
+
 
         // Entity -> DetailDto
         CreateMap<Person, PersonDetailDto>()
