@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     Row, Col, Button, Typography, Space, Switch, Spin,
     Tooltip, Modal, Form, Input, Select,
-    InputNumber, Popconfirm, Divider, AutoComplete, Alert,
+    InputNumber, Popconfirm, Divider, Alert, Tag, message,
 } from 'antd';
 import {
     VideoCameraOutlined, PlusOutlined, EditOutlined,
@@ -14,7 +14,7 @@ import {
     WifiOutlined, HomeOutlined, GlobalOutlined,
     EnvironmentOutlined, SettingOutlined, WarningOutlined,
     CheckCircleOutlined, StopOutlined, ClockCircleOutlined,
-    LinkOutlined,
+    LinkOutlined, CameraOutlined,
 } from '@ant-design/icons';
 import { useCameras, type CameraUpsertPayload } from '../../hooks/useCameras';
 import { snapshotUrl } from '../../api/camerasApi';
@@ -107,6 +107,10 @@ const getCurrentDeviceId = (): number | null => {
     const parsed = Number(raw);
     return Number.isNaN(parsed) ? null : parsed;
 };
+
+function getLocalDeviceLabel(device: MediaDeviceInfo, index: number) {
+    return device.label?.trim() || `كاميرا محلية ${index}`;
+}
 
 // ── Helpers ─────────────────────────────────────────────
 function probeImage(url: string, timeoutMs = 4000): Promise<boolean> {
@@ -228,6 +232,7 @@ function CameraCard({
     onToggle,
     toggling,
     availability,
+    localDevices,
 }: {
     cam: CameraDto;
     idx: number;
@@ -236,6 +241,7 @@ function CameraCard({
     onToggle: () => void;
     toggling: boolean;
     availability: AvailabilityValue;
+    localDevices: MediaDeviceInfo[];
 }) {
     const visual = getCameraVisualState(cam, availability);
     const kind = detectCameraKind(cam);
@@ -246,6 +252,15 @@ function CameraCard({
             : visual.key === 'offline'
                 ? 'cam-card offline'
                 : 'cam-card';
+
+    const localLabel =
+        kind === 'local' &&
+            cam.localDeviceIndex !== undefined &&
+            cam.localDeviceIndex !== null &&
+            cam.localDeviceIndex >= 0 &&
+            cam.localDeviceIndex < localDevices.length
+            ? getLocalDeviceLabel(localDevices[cam.localDeviceIndex], cam.localDeviceIndex)
+            : null;
 
     return (
         <div className={cardClass} style={{ animation: `slideUp .35s ease ${idx * 0.04}s both` }}>
@@ -351,6 +366,7 @@ function CameraCard({
                             <HomeOutlined style={{ color: C.blue, fontSize: 12 }} />
                             <Text style={{ color: C.muted, fontSize: 12 }}>
                                 جهاز محلي [{cam.localDeviceIndex ?? 'غير محدد'}]
+                                {localLabel ? ` — ${localLabel}` : ''}
                             </Text>
                         </>
                     ) : (
@@ -421,6 +437,7 @@ function CameraFormModal({
     editingId,
     cameras,
     currentDeviceId,
+    localDevices,
     onSave,
     onClose,
     isSaving,
@@ -429,52 +446,67 @@ function CameraFormModal({
     editingId: number | null;
     cameras: CameraDto[];
     currentDeviceId: number | null;
+    localDevices: MediaDeviceInfo[];
     onSave: (dto: CameraUpsertPayload) => void;
     onClose: () => void;
     isSaving: boolean;
 }) {
     const [form] = Form.useForm();
+    const [msgApi, holder] = message.useMessage();
     const editing = cameras.find(c => c.cameraId === editingId);
     const streamUrlValue = Form.useWatch('streamUrl', form);
     const isLocalMode = !String(streamUrlValue ?? '').trim();
 
-    const localIndexOptions = useMemo(
+    const usedLocalIndexSet = useMemo(() => {
+        return new Set(
+            cameras
+                .filter(c =>
+                    detectCameraKind(c) === 'local' &&
+                    c.localDeviceIndex !== undefined &&
+                    c.localDeviceIndex !== null &&
+                    c.cameraId !== editingId
+                )
+                .map(c => c.localDeviceIndex as number)
+        );
+    }, [cameras, editingId]);
+
+    const localDeviceOptions = useMemo(
         () =>
-            Array.from(
-                new Map(
-                    cameras
-                        .filter(
-                            c =>
-                                detectCameraKind(c) === 'local' &&
-                                c.localDeviceIndex !== undefined &&
-                                c.localDeviceIndex !== null
-                        )
-                        .sort((a, b) => (a.localDeviceIndex ?? 0) - (b.localDeviceIndex ?? 0))
-                        .map(c => [
-                            c.localDeviceIndex!,
-                            {
-                                value: String(c.localDeviceIndex),
-                                label: `Index ${c.localDeviceIndex} — ${c.name}`,
-                            },
-                        ])
-                ).values()
-            ),
-        [cameras]
+            localDevices
+                .map((device, index) => ({
+                    value: String(index),
+                    label: `[${index}] ${getLocalDeviceLabel(device, index)}`,
+                    disabled: usedLocalIndexSet.has(index),
+                }))
+                .filter(option => !option.disabled),
+        [localDevices, usedLocalIndexSet]
     );
+
+    const availableLocalIndexSet = useMemo(
+        () => new Set(localDeviceOptions.map(option => Number(option.value))),
+        [localDeviceOptions]
+    );
+
+    const usedLocalIndicesText = useMemo(() => {
+        const values = Array.from(usedLocalIndexSet).sort((a, b) => a - b);
+        return values.length > 0 ? values.join(' ، ') : 'لا يوجد';
+    }, [usedLocalIndexSet]);
 
     useEffect(() => {
         if (!open) return;
 
         if (editing) {
+            const editingLocalIndex =
+                editing.localDeviceIndex === undefined || editing.localDeviceIndex === null
+                    ? undefined
+                    : String(editing.localDeviceIndex);
+
             form.setFieldsValue({
                 name: editing.name,
                 code: editing.code,
                 ipAddress: editing.ipAddress,
                 streamUrl: editing.streamUrl,
-                localDeviceIndex:
-                    editing.localDeviceIndex === undefined || editing.localDeviceIndex === null
-                        ? undefined
-                        : String(editing.localDeviceIndex),
+                localDeviceIndex: editingLocalIndex,
                 area: editing.area,
                 floor: (editing as any).floor,
                 latitude: (editing as any).latitude,
@@ -483,16 +515,17 @@ function CameraFormModal({
                 isIndoor: editing.isIndoor,
                 isActive: editing.isActive,
             });
-        } else {
-            form.resetFields();
-            form.setFieldsValue({
-                isActive: true,
-                isIndoor: true,
-                localDeviceIndex: '0',
-                ipAddress: 'local',
-            });
+            return;
         }
-    }, [open, editing, form]);
+
+        form.resetFields();
+        form.setFieldsValue({
+            isActive: true,
+            isIndoor: true,
+            localDeviceIndex: localDeviceOptions.length > 0 ? localDeviceOptions[0].value : undefined,
+            ipAddress: 'local',
+        });
+    }, [open, editing, form, localDeviceOptions]);
 
     const onFinish = (vals: any) => {
         const streamUrl = typeof vals.streamUrl === 'string' ? vals.streamUrl.trim() : '';
@@ -503,9 +536,26 @@ function CameraFormModal({
                 ? undefined
                 : Number(vals.localDeviceIndex);
 
+        if (!streamUrl) {
+            if (!currentDeviceId) {
+                msgApi.error('لا يوجد جهاز حالي مختار. افتح صفحة المراقبة أولًا وحدد الجهاز.');
+                return;
+            }
+
+            if (parsedIndex === undefined || Number.isNaN(parsedIndex)) {
+                msgApi.error('اختر كاميرا محلية متاحة من القائمة.');
+                return;
+            }
+
+            if (!availableLocalIndexSet.has(parsedIndex)) {
+                msgApi.error('هذا الاندكس مستخدم مسبقًا أو غير متاح على هذا الجهاز.');
+                return;
+            }
+        }
+
         const dto: CameraUpsertPayload = {
             ...vals,
-            ipAddress: vals.ipAddress || 'local',
+            ipAddress: streamUrl ? (vals.ipAddress || '') : 'local',
             streamUrl: streamUrl || undefined,
             localDeviceIndex: streamUrl ? undefined : parsedIndex,
             userDeviceId: streamUrl ? undefined : (currentDeviceId ?? undefined),
@@ -515,166 +565,189 @@ function CameraFormModal({
     };
 
     return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            title={
-                <Space>
-                    <VideoCameraOutlined style={{ color: C.blue }} />
-                    {editingId ? 'تعديل الكاميرا' : 'إضافة كاميرا جديدة'}
-                </Space>
-            }
-            footer={null}
-            width={760}
-            centered
-            styles={{ body: { direction: 'rtl', paddingTop: 16 } }}
-        >
-            <Form form={form} layout="vertical" onFinish={onFinish}>
-                {isLocalMode && !currentDeviceId && (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        style={{ marginBottom: 16 }}
-                        message="لا يوجد جهاز حالي مختار"
-                        description="إذا كانت هذه كاميرا محلية، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي، ثم ارجع للإضافة."
-                    />
-                )}
+        <>
+            {holder}
+            <Modal
+                open={open}
+                onCancel={onClose}
+                title={
+                    <Space>
+                        <VideoCameraOutlined style={{ color: C.blue }} />
+                        {editingId ? 'تعديل الكاميرا' : 'إضافة كاميرا جديدة'}
+                    </Space>
+                }
+                footer={null}
+                width={760}
+                centered
+                styles={{ body: { direction: 'rtl', paddingTop: 16 } }}
+            >
+                <Form form={form} layout="vertical" onFinish={onFinish}>
+                    {isLocalMode && !currentDeviceId && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            message="لا يوجد جهاز حالي مختار"
+                            description="إذا كانت هذه كاميرا محلية، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي، ثم ارجع للإضافة."
+                        />
+                    )}
 
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <Form.Item name="name" label="اسم الكاميرا" rules={[{ required: true, message: 'اسم الكاميرا مطلوب' }]}>
-                            <Input placeholder="Camera1" />
-                        </Form.Item>
-                    </Col>
-
-                    <Col span={12}>
-                        <Form.Item name="code" label="الرمز">
-                            <Input placeholder="CAM-01" />
-                        </Form.Item>
-                    </Col>
-                </Row>
-
-                <Form.Item
-                    name="streamUrl"
-                    label={
-                        <Space size={4}>
-                            رابط البث
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                                (فارغ = كاميرا محلية | http://... = MJPEG | rtsp://... = RTSP)
-                            </Text>
-                        </Space>
-                    }
-                >
-                    <Input placeholder="rtsp://192.168.1.100/stream أو اتركه فارغاً للكاميرا المحلية" />
-                </Form.Item>
-
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <Form.Item name="ipAddress" label="عنوان IP">
-                            <Input placeholder="192.168.1.100 أو local" />
-                        </Form.Item>
-                    </Col>
-
-                    <Col span={12}>
-                        <Form.Item
-                            name="localDeviceIndex"
-                            label="رقم الجهاز المحلي (اندكسات الكامرات المحلية أو كتابة يدوي)"
-                            tooltip="يمكنك اختيار اندكس مستخدم سابقًا أو كتابة رقم جديد يدويًا"
-                            extra={
-                                isLocalMode
-                                    ? `الاندكسات المحلية المكتشفة في النظام: ${localIndexOptions.length > 0
-                                        ? localIndexOptions.map(x => x.value).join(' ، ')
-                                        : 'لا توجد قيم محفوظة سابقًا'
-                                    }`
-                                    : 'هذا الحقل يُستخدم فقط عند ترك رابط البث فارغًا'
+                    {isLocalMode && currentDeviceId && (
+                        <Alert
+                            type={localDeviceOptions.length > 0 ? 'info' : 'warning'}
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            message={
+                                localDeviceOptions.length > 0
+                                    ? `المتاح للإضافة على هذا الجهاز: ${localDeviceOptions.length} كامرة محلية`
+                                    : 'لا توجد كامرات محلية متاحة للإضافة على هذا الجهاز'
                             }
-                        >
-                            <AutoComplete
-                                options={localIndexOptions}
-                                disabled={!isLocalMode}
-                                filterOption={(inputValue, option) =>
-                                    String(option?.value ?? '').toLowerCase().includes(inputValue.toLowerCase()) ||
-                                    String(option?.label ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                            description={
+                                localDeviceOptions.length > 0
+                                    ? `الاندكسات المستخدمة مسبقًا في قاعدة البيانات لهذا الجهاز: ${usedLocalIndicesText}`
+                                    : `كل الكامرات المحلية المكتشفة على هذا الجهاز مستخدمة أو لا توجد كامرات مكتشفة. الاندكسات المستخدمة: ${usedLocalIndicesText}`
+                            }
+                        />
+                    )}
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="name" label="اسم الكاميرا" rules={[{ required: true, message: 'اسم الكاميرا مطلوب' }]}>
+                                <Input placeholder="Camera1" />
+                            </Form.Item>
+                        </Col>
+
+                        <Col span={12}>
+                            <Form.Item name="code" label="الرمز">
+                                <Input placeholder="CAM-01" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Form.Item
+                        name="streamUrl"
+                        label={
+                            <Space size={4}>
+                                رابط البث
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                    (فارغ = كاميرا محلية | http://... = MJPEG | rtsp://... = RTSP)
+                                </Text>
+                            </Space>
+                        }
+                    >
+                        <Input placeholder="rtsp://192.168.1.100/stream أو اتركه فارغاً للكاميرا المحلية" />
+                    </Form.Item>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="ipAddress" label="عنوان IP">
+                                <Input placeholder="192.168.1.100 أو local" />
+                            </Form.Item>
+                        </Col>
+
+                        <Col span={12}>
+                            <Form.Item
+                                name="localDeviceIndex"
+                                label="الكامرة المحلية المتاحة"
+                                tooltip="تظهر فقط الكامرات المحلية غير المستخدمة لهذا الجهاز."
+                                extra={
+                                    isLocalMode
+                                        ? localDeviceOptions.length > 0
+                                            ? `المتاح فقط: ${localDeviceOptions.map(x => x.label).join(' ، ')}`
+                                            : 'لا توجد كامرات محلية متاحة حاليًا لهذا الجهاز'
+                                        : 'هذا الحقل يُستخدم فقط عند ترك رابط البث فارغًا'
                                 }
                             >
-                                <Input
-                                    inputMode="numeric"
-                                    placeholder={isLocalMode ? '0 أو 1 أو 2...' : 'غير مطلوب للكاميرات الشبكية'}
+                                <Select
+                                    showSearch
+                                    disabled={!isLocalMode || localDeviceOptions.length === 0}
+                                    options={localDeviceOptions}
+                                    placeholder={
+                                        isLocalMode
+                                            ? (localDeviceOptions.length > 0
+                                                ? 'اختر كامرة محلية متاحة'
+                                                : 'لا توجد كامرات محلية متاحة')
+                                            : 'غير مطلوب للكاميرات الشبكية'
+                                    }
+                                    filterOption={(input, option) =>
+                                        String(option?.label ?? '').toLowerCase().includes(input.toLowerCase()) ||
+                                        String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+                                    }
                                 />
-                            </AutoComplete>
-                        </Form.Item>
-                    </Col>
-                </Row>
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <Form.Item name="area" label="المنطقة / القطاع">
-                            <Input placeholder="Sector A / المدخل" />
-                        </Form.Item>
-                    </Col>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="area" label="المنطقة / القطاع">
+                                <Input placeholder="Sector A / المدخل" />
+                            </Form.Item>
+                        </Col>
 
-                    <Col span={12}>
-                        <Form.Item name="floor" label="الطابق">
-                            <Input placeholder="الطابق الأول" />
-                        </Form.Item>
-                    </Col>
-                </Row>
+                        <Col span={12}>
+                            <Form.Item name="floor" label="الطابق">
+                                <Input placeholder="الطابق الأول" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                <Row gutter={16}>
-                    <Col span={8}>
-                        <Form.Item name="latitude" label="خط العرض">
-                            <InputNumber style={{ width: '100%' }} placeholder="33.315" />
-                        </Form.Item>
-                    </Col>
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item name="latitude" label="خط العرض">
+                                <InputNumber style={{ width: '100%' }} placeholder="33.315" />
+                            </Form.Item>
+                        </Col>
 
-                    <Col span={8}>
-                        <Form.Item name="longitude" label="خط الطول">
-                            <InputNumber style={{ width: '100%' }} placeholder="44.366" />
-                        </Form.Item>
-                    </Col>
+                        <Col span={8}>
+                            <Form.Item name="longitude" label="خط الطول">
+                                <InputNumber style={{ width: '100%' }} placeholder="44.366" />
+                            </Form.Item>
+                        </Col>
 
-                    <Col span={8}>
-                        <Form.Item name="isIndoor" label="النوع">
-                            <Select
-                                options={[
-                                    { value: true, label: '🏠 داخلية' },
-                                    { value: false, label: '🌍 خارجية' },
-                                ]}
-                            />
-                        </Form.Item>
-                    </Col>
-                </Row>
+                        <Col span={8}>
+                            <Form.Item name="isIndoor" label="النوع">
+                                <Select
+                                    options={[
+                                        { value: true, label: '🏠 داخلية' },
+                                        { value: false, label: '🌍 خارجية' },
+                                    ]}
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                <Form.Item name="notes" label="ملاحظات">
-                    <Input.TextArea rows={3} />
-                </Form.Item>
+                    <Form.Item name="notes" label="ملاحظات">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
 
-                <Row gutter={16}>
-                    <Col span={12}>
-                        <Form.Item name="isActive" label="الحالة">
-                            <Select
-                                options={[
-                                    { value: true, label: '✅ نشطة' },
-                                    { value: false, label: '⏸ متوقفة' },
-                                ]}
-                            />
-                        </Form.Item>
-                    </Col>
-                </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="isActive" label="الحالة">
+                                <Select
+                                    options={[
+                                        { value: true, label: '✅ نشطة' },
+                                        { value: false, label: '⏸ متوقفة' },
+                                    ]}
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                    <Button onClick={onClose}>إلغاء</Button>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={isSaving}
-                        icon={editingId ? <EditOutlined /> : <PlusOutlined />}
-                    >
-                        {editingId ? 'حفظ التعديلات' : 'إضافة الكاميرا'}
-                    </Button>
-                </div>
-            </Form>
-        </Modal>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                        <Button onClick={onClose}>إلغاء</Button>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={isSaving}
+                            icon={editingId ? <EditOutlined /> : <PlusOutlined />}
+                        >
+                            {editingId ? 'حفظ التعديلات' : 'إضافة الكاميرا'}
+                        </Button>
+                    </div>
+                </Form>
+            </Modal>
+        </>
     );
 }
 
@@ -883,6 +956,21 @@ export default function CamerasManagePage() {
                                     {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
                                 </Text>
                             </div>
+
+                            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {localDevices.length > 0 ? (
+                                    localDevices.map((d, i) => (
+                                        <Tag key={d.deviceId || `${d.kind}-${i}`} color="blue" style={{ marginInlineEnd: 0 }}>
+                                            <CameraOutlined style={{ marginLeft: 4 }} />
+                                            [{i}] {getLocalDeviceLabel(d, i)}
+                                        </Tag>
+                                    ))
+                                ) : (
+                                    <Text style={{ fontSize: 12, color: C.muted }}>
+                                        لا توجد كامرات محلية مكتشفة حاليًا
+                                    </Text>
+                                )}
+                            </div>
                         </div>
                     </Space>
 
@@ -1000,6 +1088,7 @@ export default function CamerasManagePage() {
                                     onToggle={() => toggleCamera(cam)}
                                     toggling={togglingId === cam.cameraId}
                                     availability={availabilityMap[cam.cameraId]}
+                                    localDevices={localDevices}
                                 />
                             </Col>
                         ))}
@@ -1012,6 +1101,7 @@ export default function CamerasManagePage() {
                 editingId={editingId}
                 cameras={cameras}
                 currentDeviceId={currentDeviceId}
+                localDevices={localDevices}
                 onSave={save}
                 onClose={closeModal}
                 isSaving={isSaving}

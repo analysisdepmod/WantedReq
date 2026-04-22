@@ -39,15 +39,21 @@ export const getCameraById = async (id: number): Promise<CameraDetailDto> => {
     return res.data.data;
 };
 
-export const activateCamera = async (id: number) =>
-    axios.put(`/cameras/${id}/activate`, undefined, {
+export const activateCamera = async (id: number): Promise<ApiResponse<boolean>> => {
+    const res = await axios.put<ApiResponse<boolean>>(`/cameras/${id}/activate`, undefined, {
         headers: getDeviceHeaders(),
     });
 
-export const deactivateCamera = async (id: number) =>
-    axios.put(`/cameras/${id}/deactivate`, undefined, {
+    return res.data;
+};
+
+export const deactivateCamera = async (id: number): Promise<ApiResponse<boolean>> => {
+    const res = await axios.put<ApiResponse<boolean>>(`/cameras/${id}/deactivate`, undefined, {
         headers: getDeviceHeaders(),
     });
+
+    return res.data;
+};
 
 /**
  * رابط snapshot للكاميرات البعيدة (RTSP/MJPEG).

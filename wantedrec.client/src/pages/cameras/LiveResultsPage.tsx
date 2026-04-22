@@ -1,27 +1,25 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
     Typography, Space, Badge, Button, Tag, Input,
-    Select, Row, Col, Alert,
+    Select, Row, Col,
 } from 'antd';
 import {
     CheckCircleOutlined, UserOutlined, VideoCameraOutlined, SearchOutlined,
     ThunderboltOutlined, ReloadOutlined, ClockCircleOutlined,
-    WifiOutlined, LinkOutlined, MonitorOutlined,
+    WifiOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useRecognitions } from '../../hooks/useRecognitions';
 import { useSignalRRecognition } from '../../hooks/useSignalRRecognition';
-import { getCameras } from '../../api/camerasApi';
+import { getRecognitions } from '../../api/recognitionApi';
 import { BASIC_URL } from '../../api';
 import { RecognitionStatus, RecognitionStatusLabel } from '../../types/camera.types';
-import type { CameraDto, RecognitionDto } from '../../types/camera.types';
+import type { RecognitionDto } from '../../types/camera.types';
 import type { LiveRecognitionEvent } from '../../hooks/useSignalRRecognition';
 
 const { Text } = Typography;
-const STORAGE_KEY = 'current_device_id';
-
 const CSS = `
   @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.4} }
   @keyframes slideIn  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:none} }
@@ -43,15 +41,6 @@ const CSS = `
   }
   .db-row:hover { border-color:#2563eb33; background:var(--app-soft-blue); }
 `;
-
-const getCurrentDeviceId = (): number | null => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = Number(raw);
-    return Number.isNaN(parsed) ? null : parsed;
-};
-
 const scoreColor = (s?: number) =>
     !s ? '#94a3b8' : s >= 0.8 ? '#16a34a' : s >= 0.6 ? '#d97706' : '#dc2626';
 
@@ -262,7 +251,6 @@ function DbRow({ rec }: { rec: RecognitionDto }) {
 // ════════════════════════════════════════════════════════
 export default function LiveResultsPage() {
     const navigate = useNavigate();
-    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
     const [search, setSearch] = useState('');
 
     const { events, isConnected, clearEvents } = useSignalRRecognition();
@@ -278,33 +266,48 @@ export default function LiveResultsPage() {
         stats,
     } = useRecognitions({ isMatch: true });
 
-    const { data: cameras = [] } = useQuery<CameraDto[]>({
-        queryKey: ['cameras', currentDeviceId],
-        queryFn: () => getCameras(),
+    const { data: recognitionCameraSource = [] } = useQuery<RecognitionDto[]>({
+        queryKey: ['recognitions-camera-options'],
+        queryFn: () => getRecognitions({ isMatch: true, pageSize: 500 }),
+        staleTime: 60_000,
+        refetchInterval: 60_000,
     });
 
-    useEffect(() => {
-        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
-
-        window.addEventListener('storage', syncDevice);
-        window.addEventListener('focus', syncDevice);
-
-        return () => {
-            window.removeEventListener('storage', syncDevice);
-            window.removeEventListener('focus', syncDevice);
-        };
-    }, []);
-
+    const cameraOptions = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    recognitionCameraSource
+                        .filter(r => r.cameraId !== undefined && r.cameraId !== null)
+                        .map(r => [
+                            r.cameraId!,
+                            {
+                                value: r.cameraId!,
+                                label: r.cameraName?.trim() || `كاميرا #${r.cameraId}`,
+                            },
+                        ])
+                ).values()
+            ).sort((a, b) => a.label.localeCompare(b.label, 'ar')),
+        [recognitionCameraSource]
+    );
     const filteredDB = useMemo(() => {
         const q = normalizeText(search);
-        if (!q) return recognitions;
 
-        return recognitions.filter(r =>
-            normalizeText(r.personFullName).includes(q) ||
-            normalizeText(r.cameraName).includes(q)
-        );
-    }, [recognitions, search]);
+        return recognitions.filter(r => {
+            const matchesSearch =
+                !q ||
+                normalizeText(r.personFullName).includes(q) ||
+                normalizeText(r.cameraName).includes(q);
 
+            const matchesCamera =
+                !filters.cameraId || r.cameraId === filters.cameraId;
+
+            const matchesStatus =
+                filters.status === undefined || r.recognitionStatus === filters.status;
+
+            return matchesSearch && matchesCamera && matchesStatus;
+        });
+    }, [recognitions, search, filters.cameraId, filters.status]);
     const refreshAll = () => {
         refetch();
     };
@@ -345,14 +348,8 @@ export default function LiveResultsPage() {
                                 نتائج التعرف المباشر
                             </Text>
                             <Text style={{ color: '#dbeafe', fontSize: 11 }}>
-                                SignalR مباشر + سجل قاعدة البيانات
+                                SignalR مباشر + سجل قاعدة البيانات لكل الأجهزة
                             </Text>
-                            <div style={{ marginTop: 2 }}>
-                                <Text style={{ color: '#bfdbfe', fontSize: 11 }}>
-                                    <LinkOutlined style={{ marginLeft: 4 }} />
-                                    الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
-                                </Text>
-                            </div>
                         </div>
                     </Space>
 
@@ -408,30 +405,6 @@ export default function LiveResultsPage() {
                     </Space>
                 </div>
 
-                {!currentDeviceId && (
-                    <div style={{ padding: '12px 20px 0' }}>
-                        <Alert
-                            type="warning"
-                            showIcon
-                            message="لم يتم اختيار الجهاز الحالي"
-                            description={
-                                <Space direction="vertical" size={8}>
-                                    <Text>افتح صفحة المراقبة أولًا وحدد هل هذا جهاز جديد أو قديم حتى تظهر النتائج الخاصة به.</Text>
-                                    <Button
-                                        size="small"
-                                        type="primary"
-                                        icon={<MonitorOutlined />}
-                                        onClick={() => navigate('/cameras/monitor')}
-                                        style={{ width: 'fit-content' }}
-                                    >
-                                        فتح صفحة اختيار الجهاز
-                                    </Button>
-                                </Space>
-                            }
-                        />
-                    </div>
-                )}
-
                 <div
                     style={{
                         background: 'var(--app-surface)',
@@ -457,7 +430,7 @@ export default function LiveResultsPage() {
                         allowClear
                         style={{ width: 160 }}
                         onChange={v => updateFilter({ cameraId: v })}
-                        options={cameras.map(c => ({ value: c.cameraId, label: c.name }))}
+                        options={cameraOptions}
                     />
 
                     <Select

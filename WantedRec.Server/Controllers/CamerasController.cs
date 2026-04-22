@@ -1,6 +1,4 @@
-﻿ 
-
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
 namespace WantedRec.Server.Controllers
@@ -23,10 +21,12 @@ namespace WantedRec.Server.Controllers
             _httpClientFactory = httpClientFactory;
         }
 
-        // ── GET /api/cameras ──────────────────────────────────
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<List<CameraDto>>), (int)HttpStatusCode.OK)]
-        public async Task<ActionResult<ApiResponse<List<CameraDto>>>> GetAllAsync(  [FromQuery] bool? isActive = null,  [FromHeader(Name = "X-User-Device-Id")] int? userDeviceId = null,  CancellationToken ct = default)
+        public async Task<ActionResult<ApiResponse<List<CameraDto>>>> GetAllAsync(
+            [FromQuery] bool? isActive = null,
+            [FromHeader(Name = "X-User-Device-Id")] int? userDeviceId = null,
+            CancellationToken ct = default)
         {
             var userId =
                 User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
@@ -36,7 +36,6 @@ namespace WantedRec.Server.Controllers
             return Ok(ApiResponse<List<CameraDto>>.Success(cameras, $"تم جلب {cameras.Count} كاميرا"));
         }
 
-        // ── GET /api/cameras/{id} ─────────────────────────────
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<CameraDetailDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), (int)HttpStatusCode.NotFound)]
@@ -48,8 +47,6 @@ namespace WantedRec.Server.Controllers
                 return NotFound(ApiResponse<CameraDetailDto>.Fail("الكاميرا غير موجودة"));
 
             var stats = await _cameraService.GetStatsAsync(id, ct);
-
-            // نضيف الإحصائيات للـ DTO مباشرة
             camera.RecognitionsToday = stats.RecognitionsToday;
             camera.TotalRecognitions = stats.TotalRecognitions;
             camera.LastRecognitionAt = stats.LastRecognitionAt;
@@ -58,7 +55,6 @@ namespace WantedRec.Server.Controllers
                 $"تعرفات اليوم: {stats.RecognitionsToday}"));
         }
 
-        // ── GET /api/cameras/{id}/stats ───────────────────────
         [HttpGet("{id:int}/stats")]
         [ProducesResponseType(typeof(ApiResponse<CameraStatsDto>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<CameraStatsDto>>> GetStatsAsync(
@@ -72,20 +68,6 @@ namespace WantedRec.Server.Controllers
             return Ok(ApiResponse<CameraStatsDto>.Success(stats, "تم جلب الإحصائيات"));
         }
 
-        // ── GET /api/cameras/{id}/snapshot ────────────────────
-        /// <summary>
-        /// Proxy endpoint للكاميرات RTSP/MJPEG البعيدة.
-        /// المتصفح لا يستطيع الوصول لـ RTSP مباشرة،
-        /// فيطلب الفرونت هذا الـ endpoint كل X ثانية.
-        ///
-        /// يدعم نوعين:
-        ///   RTSP  → ffmpeg يسحب frame واحد
-        ///   MJPEG → HttpClient يجلب أول frame من HTTP stream
-        ///
-        /// ⚠️ يحتاج ffmpeg مثبتاً على السيرفر للكاميرات RTSP.
-        ///    تثبيت: apt install ffmpeg  (Linux)
-        ///            winget install ffmpeg (Windows)
-        /// </summary>
         [HttpGet("{id:int}/snapshot")]
         public async Task<IActionResult> GetSnapshotAsync(
             int id, CancellationToken ct = default)
@@ -101,12 +83,10 @@ namespace WantedRec.Server.Controllers
             {
                 byte[] imageBytes;
 
-                // ── RTSP: نستخدم ffmpeg ───────────────────────
                 if (camera.StreamUrl.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
                 {
                     imageBytes = await CaptureRtspFrameAsync(camera.StreamUrl, id, ct);
                 }
-                // ── MJPEG/HTTP: نجلب مباشرة ───────────────────
                 else
                 {
                     imageBytes = await CaptureMjpegFrameAsync(camera.StreamUrl, ct);
@@ -126,7 +106,6 @@ namespace WantedRec.Server.Controllers
             }
         }
 
-        // ── POST /api/cameras ─────────────────────────────────
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<CameraDetailDto>), (int)HttpStatusCode.Created)]
         public async Task<ActionResult<ApiResponse<CameraDetailDto>>> CreateAsync(
@@ -134,26 +113,27 @@ namespace WantedRec.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<CameraDetailDto>.Fail(
-                  string.Join(" | ", ModelState.Values
-                      .SelectMany(v => v.Errors)
-                      .Select(e => e.ErrorMessage))));
+                    string.Join(" | ", ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage))));
             try
             {
                 var camera = await _cameraService.CreateAsync(dto, ct);
-                return Ok( ApiResponse<CameraDetailDto>.Success(camera, "تمت إضافة الكاميرا بنجاح"));
-
-              
+                return Ok(ApiResponse<CameraDetailDto>.Success(camera, "تمت إضافة الكاميرا بنجاح"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<CameraDetailDto>.Fail(ex.Message));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating camera");
                 return StatusCode(
-                 (int)HttpStatusCode.InternalServerError,
-                 ApiResponse<CameraDetailDto>.Fail("فشل إنشاء الكاميرا: " + ex.Message));
+                    (int)HttpStatusCode.InternalServerError,
+                    ApiResponse<CameraDetailDto>.Fail("فشل إنشاء الكاميرا: " + ex.Message));
             }
         }
 
-        // ── PUT /api/cameras/{id} ─────────────────────────────
         [HttpPut("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<CameraDetailDto>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<CameraDetailDto>>> UpdateAsync(
@@ -171,6 +151,10 @@ namespace WantedRec.Server.Controllers
 
                 return Ok(ApiResponse<CameraDetailDto>.Success(camera, "تم تحديث الكاميرا بنجاح"));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<CameraDetailDto>.Fail(ex.Message));
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating camera {Id}", id);
@@ -178,7 +162,6 @@ namespace WantedRec.Server.Controllers
             }
         }
 
-        // ── DELETE /api/cameras/{id} ──────────────────────────
         [HttpDelete("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<bool>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<bool>>> DeleteAsync(
@@ -191,7 +174,6 @@ namespace WantedRec.Server.Controllers
             return Ok(ApiResponse<bool>.Success(true, "تمت معالجة طلب الحذف"));
         }
 
-        // ── PUT /api/cameras/{id}/activate ────────────────────
         [HttpPut("{id:int}/activate")]
         [ProducesResponseType(typeof(ApiResponse<bool>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<bool>>> ActivateAsync(
@@ -204,7 +186,6 @@ namespace WantedRec.Server.Controllers
             return Ok(ApiResponse<bool>.Success(true, "تم تفعيل الكاميرا"));
         }
 
-        // ── PUT /api/cameras/{id}/deactivate ──────────────────
         [HttpPut("{id:int}/deactivate")]
         [ProducesResponseType(typeof(ApiResponse<bool>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<bool>>> DeactivateAsync(
@@ -217,10 +198,6 @@ namespace WantedRec.Server.Controllers
             return Ok(ApiResponse<bool>.Success(false, "تم تعطيل الكاميرا"));
         }
 
-        // ══════════════════════════════════════════════════════
-        //  Private — RTSP Frame Capture via ffmpeg
-        // ══════════════════════════════════════════════════════
-
         private async Task<byte[]> CaptureRtspFrameAsync(
             string streamUrl, int cameraId, CancellationToken ct)
         {
@@ -228,9 +205,6 @@ namespace WantedRec.Server.Controllers
                 Path.GetTempPath(),
                 $"snap_{cameraId}_{Guid.NewGuid():N}.jpg");
 
-            // ffmpeg: -rtsp_transport tcp يثبّت الاتصال
-            // -vframes 1 يسحب frame واحد فقط
-            // -q:v 2 جودة عالية
             var args =
                 $"-rtsp_transport tcp " +
                 $"-i \"{streamUrl}\" " +
@@ -272,16 +246,11 @@ namespace WantedRec.Server.Controllers
             return bytes;
         }
 
-        // ══════════════════════════════════════════════════════
-        //  Private — MJPEG Frame via HttpClient
-        // ══════════════════════════════════════════════════════
-
         private async Task<byte[]> CaptureMjpegFrameAsync(string streamUrl, CancellationToken ct)
         {
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(8);
 
-            // لو الـ stream MJPEG نقرأ أول frame فقط
             using var response = await client.GetAsync(
                 streamUrl,
                 HttpCompletionOption.ResponseHeadersRead,
@@ -291,27 +260,18 @@ namespace WantedRec.Server.Controllers
 
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
 
-            // لو image/jpeg مباشرة (snapshot URL)
             if (contentType.Contains("jpeg") || contentType.Contains("image"))
                 return await response.Content.ReadAsByteArrayAsync(ct);
 
-            // لو MJPEG multipart — نقرأ أول frame
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             return await ReadFirstMjpegFrameAsync(stream, ct);
         }
 
-        /// <summary>
-        /// يقرأ أول JPEG frame من stream MJPEG multipart.
-        /// Format: --boundary\r\nContent-Type: image/jpeg\r\n\r\n[JPEG data]\r\n
-        /// </summary>
         private static async Task<byte[]> ReadFirstMjpegFrameAsync(
             Stream stream, CancellationToken ct)
         {
             var buffer = new byte[65536];
-            var collected = new System.IO.MemoryStream();
-            var jpegStart = new byte[] { 0xFF, 0xD8 };
-            var jpegEnd = new byte[] { 0xFF, 0xD9 };
-
+            var collected = new MemoryStream();
             bool inFrame = false;
 
             while (true)
@@ -339,7 +299,7 @@ namespace WantedRec.Server.Controllers
                     }
                 }
 
-                if (collected.Length > 5_000_000) // 5MB max
+                if (collected.Length > 5_000_000)
                     throw new InvalidOperationException("MJPEG frame too large");
             }
 

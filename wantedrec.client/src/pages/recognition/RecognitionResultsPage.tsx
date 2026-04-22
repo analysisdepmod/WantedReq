@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -9,27 +9,18 @@ import type { ColumnsType } from 'antd/es/table';
 import {
     CheckCircleOutlined, EyeOutlined, VideoCameraOutlined, UserOutlined,
     ReloadOutlined, FilterOutlined, WarningOutlined, BarChartOutlined,
-    ThunderboltOutlined, LinkOutlined, MonitorOutlined,
+    ThunderboltOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useRecognitions } from '../../hooks/useRecognitions';
 import { useSignalRRecognition } from '../../hooks/useSignalRRecognition';
-import { getCameras } from '../../api/camerasApi';
-import type { CameraDto, RecognitionDto } from '../../types/camera.types';
+import { getRecognitions } from '../../api/recognitionApi';
+import type { RecognitionDto } from '../../types/camera.types';
 import { RecognitionStatus, RecognitionStatusLabel, RecognitionStatusColor } from '../../types/camera.types';
 import { BASIC_URL } from '../../api';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
-const STORAGE_KEY = 'current_device_id';
-
-const getCurrentDeviceId = (): number | null => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = Number(raw);
-    return Number.isNaN(parsed) ? null : parsed;
-};
 
 const scoreColor = (s?: number) =>
     !s ? '#94a3b8' : s >= 0.8 ? '#16a34a' : s >= 0.6 ? '#d97706' : '#dc2626';
@@ -90,7 +81,6 @@ function StatCard({
 
 export default function RecognitionResultsPage() {
     const navigate = useNavigate();
-    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
 
     const {
         recognitions,
@@ -106,22 +96,30 @@ export default function RecognitionResultsPage() {
 
     const { events: liveEvents, isConnected } = useSignalRRecognition();
 
-    const { data: cameras = [] } = useQuery<CameraDto[]>({
-        queryKey: ['cameras', currentDeviceId],
-        queryFn: () => getCameras(),
+    const { data: recognitionCameraSource = [] } = useQuery<RecognitionDto[]>({
+        queryKey: ['recognitions-camera-options'],
+        queryFn: () => getRecognitions({ isMatch: true, pageSize: 500 }),
+        staleTime: 60_000,
+        refetchInterval: 60_000,
     });
 
-    useEffect(() => {
-        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
-
-        window.addEventListener('storage', syncDevice);
-        window.addEventListener('focus', syncDevice);
-
-        return () => {
-            window.removeEventListener('storage', syncDevice);
-            window.removeEventListener('focus', syncDevice);
-        };
-    }, []);
+    const cameraOptions = useMemo(
+        () =>
+            Array.from(
+                new Map(
+                    recognitionCameraSource
+                        .filter(r => r.cameraId !== undefined && r.cameraId !== null)
+                        .map(r => [
+                            r.cameraId!,
+                            {
+                                value: r.cameraId!,
+                                label: r.cameraName?.trim() || `كاميرا #${r.cameraId}`,
+                            },
+                        ])
+                ).values()
+            ).sort((a, b) => a.label.localeCompare(b.label, 'ar')),
+        [recognitionCameraSource]
+    );
 
     const columns: ColumnsType<RecognitionDto> = [
         {
@@ -252,30 +250,6 @@ export default function RecognitionResultsPage() {
                 minHeight: '100vh',
             }}
         >
-            {!currentDeviceId && (
-                <Alert
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: 14, borderRadius: 10 }}
-                    message="لم يتم اختيار الجهاز الحالي"
-                    description={
-                        <Space direction="vertical" size={8}>
-                            <Text>
-                                إذا كنت تريد السجل الخاص بالتعرفات المحلية لهذا الجهاز، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي.
-                            </Text>
-                            <Button
-                                size="small"
-                                type="primary"
-                                icon={<MonitorOutlined />}
-                                onClick={() => navigate('/cameras/monitor')}
-                                style={{ width: 'fit-content' }}
-                            >
-                                فتح صفحة اختيار الجهاز
-                            </Button>
-                        </Space>
-                    }
-                />
-            )}
 
             {/* Header */}
             <div
@@ -314,13 +288,9 @@ export default function RecognitionResultsPage() {
 
                         <Space size={10} wrap>
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                جميع عمليات التعرف الناجحة
+                                يعرض نتائج التعرف من جميع الأجهزة والكامرات
                             </Text>
 
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                <LinkOutlined style={{ marginLeft: 4 }} />
-                                الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
-                            </Text>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span
@@ -426,7 +396,7 @@ export default function RecognitionResultsPage() {
                     allowClear
                     style={{ width: 180 }}
                     onChange={v => updateFilter({ cameraId: v })}
-                    options={cameras.map(c => ({ value: c.cameraId, label: c.name }))}
+                    options={cameraOptions}
                 />
 
                 <Select

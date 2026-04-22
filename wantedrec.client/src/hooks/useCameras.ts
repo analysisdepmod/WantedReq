@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
@@ -7,6 +8,7 @@ import {
     deactivateCamera,
 } from '../api/camerasApi';
 import axiosInstance from '../api';
+import type { ApiResponse } from '../types/person.types';
 import type { CameraDto, CameraDetailDto } from '../types/camera.types';
 
 export interface CameraUpsertPayload {
@@ -28,28 +30,65 @@ export interface CameraUpsertPayload {
     notes?: string;
 }
 
+const getDeviceHeaders = (currentDeviceId?: number | null) =>
+    currentDeviceId !== undefined && currentDeviceId !== null
+        ? { 'X-User-Device-Id': String(currentDeviceId) }
+        : undefined;
+
 const fetchCameras = (
     filterActive?: boolean,
     currentDeviceId?: number | null
 ): Promise<CameraDto[]> =>
     axiosInstance
-        .get('/cameras', {
+        .get<ApiResponse<CameraDto[]>>('/cameras', {
             params: filterActive !== undefined ? { isActive: filterActive } : undefined,
-            headers:
-                currentDeviceId !== undefined && currentDeviceId !== null
-                    ? { 'X-User-Device-Id': String(currentDeviceId) }
-                    : undefined,
+            headers: getDeviceHeaders(currentDeviceId),
         })
         .then(r => r.data.data);
 
-const createCamera = (dto: CameraUpsertPayload): Promise<CameraDetailDto> =>
-    axiosInstance.post('/cameras', dto).then(r => r.data.data);
+const createCamera = (
+    dto: CameraUpsertPayload,
+    currentDeviceId?: number | null
+): Promise<ApiResponse<CameraDetailDto>> =>
+    axiosInstance
+        .post<ApiResponse<CameraDetailDto>>('/cameras', dto, {
+            headers: getDeviceHeaders(currentDeviceId),
+        })
+        .then(r => r.data);
 
-const updateCamera = (id: number, dto: CameraUpsertPayload): Promise<CameraDetailDto> =>
-    axiosInstance.put(`/cameras/${id}`, dto).then(r => r.data.data);
+const updateCamera = (
+    id: number,
+    dto: CameraUpsertPayload,
+    currentDeviceId?: number | null
+): Promise<ApiResponse<CameraDetailDto>> =>
+    axiosInstance
+        .put<ApiResponse<CameraDetailDto>>(`/cameras/${id}`, dto, {
+            headers: getDeviceHeaders(currentDeviceId),
+        })
+        .then(r => r.data);
 
-const deleteCamera = (id: number): Promise<void> =>
-    axiosInstance.delete(`/cameras/${id}`).then(() => undefined);
+const deleteCameraRequest = (
+    id: number,
+    currentDeviceId?: number | null
+): Promise<ApiResponse<boolean>> =>
+    axiosInstance
+        .delete<ApiResponse<boolean>>(`/cameras/${id}`, {
+            headers: getDeviceHeaders(currentDeviceId),
+        })
+        .then(r => r.data);
+
+const getApiErrorMessage = (error: unknown, fallback: string): string => {
+    if (axios.isAxiosError(error)) {
+        const responseData = error.response?.data as { message?: string } | undefined;
+        return responseData?.message || fallback;
+    }
+
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    return fallback;
+};
 
 // ── Hook ──────────────────────────────────────────────────
 export function useCameras(filterActive?: boolean, currentDeviceId?: number | null) {
@@ -68,33 +107,34 @@ export function useCameras(filterActive?: boolean, currentDeviceId?: number | nu
     const invalidate = () => qc.invalidateQueries({ queryKey: ['cameras'] });
 
     const createMutation = useMutation({
-        mutationFn: createCamera,
-        onSuccess: () => {
-            msgApi.success('تمت إضافة الكاميرا');
+        mutationFn: (dto: CameraUpsertPayload) => createCamera(dto, currentDeviceId),
+        onSuccess: (res) => {
+            msgApi.success(res.message || 'تمت إضافة الكاميرا');
             invalidate();
             setModalOpen(false);
         },
-        onError: () => msgApi.error('فشل إنشاء الكاميرا'),
+        onError: (error) => msgApi.error(getApiErrorMessage(error, 'فشل إنشاء الكاميرا')),
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, dto }: { id: number; dto: CameraUpsertPayload }) => updateCamera(id, dto),
-        onSuccess: () => {
-            msgApi.success('تم تحديث الكاميرا');
+        mutationFn: ({ id, dto }: { id: number; dto: CameraUpsertPayload }) =>
+            updateCamera(id, dto, currentDeviceId),
+        onSuccess: (res) => {
+            msgApi.success(res.message || 'تم تحديث الكاميرا');
             invalidate();
             setModalOpen(false);
             setEditingId(null);
         },
-        onError: () => msgApi.error('فشل تحديث الكاميرا'),
+        onError: (error) => msgApi.error(getApiErrorMessage(error, 'فشل تحديث الكاميرا')),
     });
 
     const deleteMutation = useMutation({
-        mutationFn: deleteCamera,
-        onSuccess: () => {
-            msgApi.success('تمت معالجة طلب الحذف');
+        mutationFn: (id: number) => deleteCameraRequest(id, currentDeviceId),
+        onSuccess: (res) => {
+            msgApi.success(res.message || 'تمت معالجة طلب الحذف');
             invalidate();
         },
-        onError: () => msgApi.error('فشل الحذف'),
+        onError: (error) => msgApi.error(getApiErrorMessage(error, 'فشل الحذف')),
     });
 
     const toggleMutation = useMutation({
@@ -102,11 +142,11 @@ export function useCameras(filterActive?: boolean, currentDeviceId?: number | nu
             setTogglingId(cam.cameraId);
             return cam.isActive ? deactivateCamera(cam.cameraId) : activateCamera(cam.cameraId);
         },
-        onSuccess: (_, cam) => {
-            msgApi.success(cam.isActive ? 'تم إيقاف الكاميرا' : 'تم تشغيل الكاميرا');
+        onSuccess: (res) => {
+            msgApi.success(res.message || 'تم تغيير حالة الكاميرا');
             invalidate();
         },
-        onError: () => msgApi.error('فشل تغيير الحالة'),
+        onError: (error) => msgApi.error(getApiErrorMessage(error, 'فشل تغيير الحالة')),
         onSettled: () => setTogglingId(null),
     });
 

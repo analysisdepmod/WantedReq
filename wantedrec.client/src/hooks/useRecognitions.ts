@@ -1,24 +1,15 @@
 // ═══════════════════════════════════════════════════════
 //  src/hooks/useRecognitions.ts
 //  هوك سجل التعرف — جماعي وفردي
-//  نسخة تدعم الجهاز الحالي
+//  نسخة عامة — النتائج لا تعتمد على الجهاز الحالي
 // ═══════════════════════════════════════════════════════
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { getRecognitions, reviewRecognition } from '../api/recognitionApi';
 import type { RecognitionDto, RecognitionReviewDto } from '../types/camera.types';
 import { RecognitionStatus } from '../types/camera.types';
 
-const STORAGE_KEY = 'current_device_id';
-
-const getCurrentDeviceId = (): number | null => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = Number(raw);
-    return Number.isNaN(parsed) ? null : parsed;
-};
 
 export interface RecognitionFilters {
     cameraId?: number;
@@ -32,22 +23,9 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
     const qc = useQueryClient();
     const [msgApi, ctx] = message.useMessage();
     const [filters, setFilters] = useState<RecognitionFilters>(defaultFilters ?? {});
-    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
-
-    useEffect(() => {
-        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
-
-        window.addEventListener('storage', syncDevice);
-        window.addEventListener('focus', syncDevice);
-
-        return () => {
-            window.removeEventListener('storage', syncDevice);
-            window.removeEventListener('focus', syncDevice);
-        };
-    }, []);
 
     const query = useQuery({
-        queryKey: ['recognitions', filters, currentDeviceId],
+        queryKey: ['recognitions', filters],
         queryFn: () =>
             getRecognitions({
                 cameraId: filters.cameraId,
@@ -116,7 +94,6 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
         updateFilter,
         clearFilters,
         stats,
-        currentDeviceId,
         review: (id: number, dto: RecognitionReviewDto) => reviewMutation.mutate({ id, dto }),
         isReviewing: reviewMutation.isPending,
         ctx,

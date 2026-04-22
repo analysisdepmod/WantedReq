@@ -60,12 +60,12 @@ export const getRecognitions = async (params?: {
     toDate?: string;
     isMatch?: boolean;
     recognitionStatus?: number;
+    pageSize?: number;
 }): Promise<RecognitionDto[]> => {
     const res = await axiosInstance.get<ApiResponse<RecognitionDto[]>>(
         '/recognition/recognitions',
         {
             params,
-            headers: getDeviceHeaders(),
         },
     );
 
