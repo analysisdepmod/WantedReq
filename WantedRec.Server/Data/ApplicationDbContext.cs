@@ -120,6 +120,12 @@ namespace WantedRec.Server.Data
                   .WithOne(r => r.ReviewedByUser)
                   .HasForeignKey(r => r.ReviewedByUserId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Camera>()
+    .HasOne(c => c.UserDevice)
+    .WithMany(d => d.Cameras)
+    .HasForeignKey(c => c.UserDeviceId)
+    .OnDelete(DeleteBehavior.SetNull);
         }
 
         public DbSet<ChatGroupUserRead> ChatGroupUserReads { get; set; }
@@ -149,7 +155,7 @@ namespace WantedRec.Server.Data
         public DbSet<Suspect> Suspects { get; set; }
         public DbSet<Camera> Cameras { get; set; }
 
-
+        public DbSet<UserDevice> UserDevices => Set<UserDevice>();
 
 
         private void ConfigurePerson(ModelBuilder modelBuilder)

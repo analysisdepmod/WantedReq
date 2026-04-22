@@ -1,13 +1,18 @@
-// ═══════════════════════════════════════════════════════
-//  src/hooks/useMonitor.ts
-//  هوك المراقبة المباشرة — local devices + recognition
-// ═══════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCameras } from '../api/camerasApi';
-import { identifyFace } from '../api/recognitionApi';
 import type { CameraDto, LiveRecognitionResultDto } from '../types/camera.types';
 import { detectCameraKind } from '../types/camera.types';
+
+const STORAGE_KEY = 'current_device_id';
+
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
 
 export interface CameraFeedState {
     cameraId: number;
@@ -31,6 +36,7 @@ export interface RecognitionEvent {
 }
 
 export function useMonitor(intervalSec = 3) {
+    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
     const [localDevices, setLocalDevices] = useState<MediaDeviceInfo[]>([]);
     const [devicesReady, setDevicesReady] = useState(false);
     const [feedStates, setFeedStates] = useState<Partial<Record<number, CameraFeedState>>>({});
@@ -39,30 +45,87 @@ export function useMonitor(intervalSec = 3) {
     const [totalKnown, setTotalKnown] = useState(0);
     const [totalFrames, setTotalFrames] = useState(0);
 
-    // ── جلب الأجهزة المحلية ───────────────────────────────
+    // ── مزامنة الجهاز الحالي من localStorage ───────────────
     useEffect(() => {
-        (async () => {
+        const syncCurrentDevice = () => setCurrentDeviceId(getCurrentDeviceId());
+
+        window.addEventListener('storage', syncCurrentDevice);
+        window.addEventListener('focus', syncCurrentDevice);
+
+        return () => {
+            window.removeEventListener('storage', syncCurrentDevice);
+            window.removeEventListener('focus', syncCurrentDevice);
+        };
+    }, []);
+
+    // ── جلب الأجهزة المحلية بعد طلب إذن الكامرة ────────────
+    useEffect(() => {
+        let disposed = false;
+
+        const loadDevices = async () => {
             try {
                 const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
                 tmp.getTracks().forEach(t => t.stop());
 
                 const all = await navigator.mediaDevices.enumerateDevices();
-                setLocalDevices(all.filter(d => d.kind === 'videoinput'));
+                const videoInputs = all.filter(d => d.kind === 'videoinput');
+
+                if (!disposed) {
+                    // نحافظ على ترتيب المتصفح نفسه لأن localDeviceIndex يعتمد عليه
+                    setLocalDevices(videoInputs);
+                }
             } catch {
-                // user denied
+                if (!disposed) {
+                    setLocalDevices([]);
+                }
             } finally {
-                setDevicesReady(true);
+                if (!disposed) {
+                    setDevicesReady(true);
+                }
             }
-        })();
+        };
+
+        loadDevices();
+
+        const mediaDevices = navigator.mediaDevices;
+        if (mediaDevices?.addEventListener) {
+            mediaDevices.addEventListener('devicechange', loadDevices);
+        }
+
+        return () => {
+            disposed = true;
+            if (mediaDevices?.removeEventListener) {
+                mediaDevices.removeEventListener('devicechange', loadDevices);
+            }
+        };
     }, []);
 
-    // ── جلب الكاميرات النشطة ──────────────────────────────
+    // ── حذف أي mappings قديمة لم تعد موجودة ───────────────
+    useEffect(() => {
+        setDeviceMapping(prev => {
+            const validIds = new Set(localDevices.map(d => d.deviceId));
+            const next: Record<number, string> = {};
+            let changed = false;
+
+            Object.entries(prev).forEach(([cameraId, deviceId]) => {
+                if (validIds.has(deviceId)) {
+                    next[Number(cameraId)] = deviceId;
+                } else {
+                    changed = true;
+                }
+            });
+
+            return changed ? next : prev;
+        });
+    }, [localDevices]);
+
+    // ── جلب الكامرات النشطة الخاصة بالجهاز الحالي ──────────
     const {
         data: cameras = [],
         isLoading,
         refetch,
     } = useQuery<CameraDto[]>({
-        queryKey: ['cameras-active'],
+        queryKey: ['cameras-active', currentDeviceId],
         queryFn: () => getCameras({ isActive: true }),
         enabled: devicesReady,
         refetchInterval: 60_000,
@@ -72,23 +135,31 @@ export function useMonitor(intervalSec = 3) {
         () =>
             cameras
                 .filter(c => detectCameraKind(c) === 'local')
-                .sort((a, b) => a.cameraId - b.cameraId),
+                .sort((a, b) => {
+                    const ai = a.localDeviceIndex ?? Number.MAX_SAFE_INTEGER;
+                    const bi = b.localDeviceIndex ?? Number.MAX_SAFE_INTEGER;
+                    return ai - bi;
+                }),
         [cameras]
     );
 
-    // ── مطابقة device لكل كاميرا محلية ───────────────────
+    // ── مطابقة deviceId لكل كاميرا محلية ───────────────────
     const getDeviceId = useCallback(
         (cam: CameraDto): string | null => {
-            if (deviceMapping[cam.cameraId]) return deviceMapping[cam.cameraId];
-
-            if (cam.localDeviceIndex !== undefined && cam.localDeviceIndex !== null) {
-                return localDevices[cam.localDeviceIndex]?.deviceId ?? null;
+            const mappedDeviceId = deviceMapping[cam.cameraId];
+            if (mappedDeviceId && localDevices.some(d => d.deviceId === mappedDeviceId)) {
+                return mappedDeviceId;
             }
 
-            const idx = localCameras.findIndex(c => c.cameraId === cam.cameraId);
-            return localDevices[idx]?.deviceId ?? null;
+            if (cam.localDeviceIndex !== undefined && cam.localDeviceIndex !== null) {
+                if (cam.localDeviceIndex >= 0 && cam.localDeviceIndex < localDevices.length) {
+                    return localDevices[cam.localDeviceIndex]?.deviceId ?? null;
+                }
+            }
+
+            return null;
         },
-        [deviceMapping, localDevices, localCameras]
+        [deviceMapping, localDevices]
     );
 
     // ── تحديث حالة كاميرا واحدة ──────────────────────────
@@ -136,6 +207,7 @@ export function useMonitor(intervalSec = 3) {
     }, []);
 
     return {
+        currentDeviceId,
         localDevices,
         devicesReady,
         cameras,

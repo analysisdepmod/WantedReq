@@ -34,5 +34,7 @@
 
         public DateTime CreatedAt { get; set; }
         public string? ReviewNotes { get; set; }
+
+        public int? UserDeviceId { get; set; }
     }
 }

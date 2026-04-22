@@ -31,4 +31,6 @@ global using Microsoft.AspNetCore.SignalR;
 global using WantedRec.Server.Models.VM;
 global using WantedRec.Server.Hubs;
 global using WantedRec.Server.Interfaces;
-
+global using Microsoft.Extensions.Caching.Memory;
+global using System.Net;
+global using WantedRec.Server.DTOs.PythonAIDto;

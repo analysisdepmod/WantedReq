@@ -281,7 +281,7 @@ export default function MainLayout() {
                                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
                                         {basicUserInfo?.rankName} / {basicUserInfo?.userName}
                                     </div>
-                                    <div style={{ fontSize: 10, color: T.muted }}>مسؤول النظام</div>
+                                    <div style={{ fontSize: 10, color: T.muted }}>المنصب</div>
                                 </div>
                             </div>
                         </Dropdown>
@@ -401,7 +401,7 @@ export default function MainLayout() {
                         background: T.bg,
                         transition: 'margin .22s',
                     }}>
-                        <div style={{ minHeight: '90vh' }}>
+                        <div style={{ minHeight: '90%',overflowY:'auto' }}>
                             <Outlet />
                         </div>
                         <Footer style={{

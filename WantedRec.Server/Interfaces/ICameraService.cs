@@ -2,11 +2,13 @@
 //  WantedRec.Server/Services/ICameraService.cs
 // ════════════════════════════════════════════════════════
 
+using WantedRec.Server.Models;
+
 namespace WantedRec.Server.Services
 {
     public interface ICameraService
     {
-        Task<List<CameraDto>> GetAllAsync(bool? isActive = null, CancellationToken ct = default);
+        Task<List<CameraDto>> GetAllAsync(bool? isActive = null, string? userId=null, int? userDeviceId =null, CancellationToken ct = default);
         Task<CameraDetailDto?> GetByIdAsync(int id, CancellationToken ct = default);
         Task<CameraDetailDto> CreateAsync(CameraUpsertDto dto, CancellationToken ct = default);
         Task<CameraDetailDto?> UpdateAsync(int id, CameraUpsertDto dto, CancellationToken ct = default);

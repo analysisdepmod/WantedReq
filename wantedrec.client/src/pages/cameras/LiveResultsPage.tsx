@@ -1,17 +1,14 @@
-
-
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
     Typography, Space, Badge, Button, Tag, Input,
-    Select, Row, Col
+    Select, Row, Col, Alert,
 } from 'antd';
 import {
-    CheckCircleOutlined, WarningOutlined, EyeOutlined,
-    UserOutlined, VideoCameraOutlined, SearchOutlined,
+    CheckCircleOutlined, UserOutlined, VideoCameraOutlined, SearchOutlined,
     ThunderboltOutlined, ReloadOutlined, ClockCircleOutlined,
-    WifiOutlined,
+    WifiOutlined, LinkOutlined, MonitorOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useRecognitions } from '../../hooks/useRecognitions';
@@ -22,7 +19,8 @@ import { RecognitionStatus, RecognitionStatusLabel } from '../../types/camera.ty
 import type { CameraDto, RecognitionDto } from '../../types/camera.types';
 import type { LiveRecognitionEvent } from '../../hooks/useSignalRRecognition';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
+const STORAGE_KEY = 'current_device_id';
 
 const CSS = `
   @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -32,28 +30,44 @@ const CSS = `
     50%      { box-shadow:0 0 0 10px rgba(220,38,38,0); }
   }
   .live-chip {
-    display:flex; align-items:center; gap:10; padding:10px 12px;
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
     background:var(--app-surface); border:1px solid var(--app-border); border-radius:12px;
     cursor:pointer; transition:all .18s; animation:slideIn .25s ease both;
   }
   .live-chip:hover { border-color:#2563eb44; box-shadow:0 4px 12px rgba(37,99,235,.1); transform:translateY(-1px); }
   .live-chip.suspect { border-color:#fca5a5; background:var(--app-soft-red); animation:suspectPulse 2s infinite; }
-  .db-row { display:flex; align-items:center; gap:10; padding:10px 12px;
-            background:var(--app-surface); border:1px solid var(--app-border); border-radius:12px;
-            cursor:pointer; transition:all .18s; margin-bottom:6px; }
+  .db-row {
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    background:var(--app-surface); border:1px solid var(--app-border); border-radius:12px;
+    cursor:pointer; transition:all .18s; margin-bottom:6px;
+  }
   .db-row:hover { border-color:#2563eb33; background:var(--app-soft-blue); }
 `;
+
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
 
 const scoreColor = (s?: number) =>
     !s ? '#94a3b8' : s >= 0.8 ? '#16a34a' : s >= 0.6 ? '#d97706' : '#dc2626';
 
 const buildUrl = (p: string) => `${BASIC_URL.replace(/\/api\/?$/, '')}/${p}`;
 
-// ── ScoreBar ──────────────────────────────────────────────
+function normalizeText(v?: string | null) {
+    return String(v ?? '').trim().toLowerCase();
+}
+
+// ── ScoreBar ────────────────────────────────────────────
 function ScoreBar({ score }: { score?: number }) {
     if (!score) return null;
+
     const pct = Math.round(score * 100);
     const color = scoreColor(score);
+
     return (
         <div style={{ width: 80 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -62,54 +76,102 @@ function ScoreBar({ score }: { score?: number }) {
                 </Text>
                 <Text style={{ fontSize: 11, fontWeight: 700, color }}>{pct}%</Text>
             </div>
-            <div style={{ height: 4, background: 'var(--app-surface-2)', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%', width: `${pct}%`, borderRadius: 99,
-                    background: `linear-gradient(90deg,${color}88,${color})`
-                }} />
+            <div
+                style={{
+                    height: 4,
+                    background: 'var(--app-surface-2)',
+                    borderRadius: 99,
+                    overflow: 'hidden',
+                }}
+            >
+                <div
+                    style={{
+                        height: '100%',
+                        width: `${pct}%`,
+                        borderRadius: 99,
+                        background: `linear-gradient(90deg,${color}88,${color})`,
+                    }}
+                />
             </div>
         </div>
     );
 }
 
-// ── Live Event Chip (SignalR) ─────────────────────────────
+// ── Live Event Chip ──────────────────────────────────────
 function LiveChip({ ev, delay = 0 }: { ev: LiveRecognitionEvent; delay?: number }) {
     const navigate = useNavigate();
-    return (
-        <div className={`live-chip${ev.isSuspect ? ' suspect' : ''}`}
-            style={{ animationDelay: `${delay}ms` }}
-            onClick={() => ev.personId && navigate(`/recognition/person/${ev.personId}`)}>
 
+    return (
+        <div
+            className={`live-chip${ev.isSuspect ? ' suspect' : ''}`}
+            style={{ animationDelay: `${delay}ms` }}
+            onClick={() => ev.personId && navigate(`/recognition/person/${ev.personId}`)}
+        >
             {ev.primaryImageBase64 ? (
-                <img src={`data:image/jpeg;base64,${ev.primaryImageBase64}`} alt=""
+                <img
+                    src={`data:image/jpeg;base64,${ev.primaryImageBase64}`}
+                    alt=""
                     style={{
-                        width: 42, height: 42, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
-                        border: `2px solid ${scoreColor(ev.score)}`
-                    }} />
+                        width: 42,
+                        height: 42,
+                        borderRadius: 8,
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                        border: `2px solid ${scoreColor(ev.score)}`,
+                    }}
+                />
             ) : (
-                <div style={{
-                    width: 42, height: 42, borderRadius: 8, flexShrink: 0,
-                    background: 'var(--app-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
+                <div
+                    style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        background: 'var(--app-surface-2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
                     <UserOutlined style={{ color: 'var(--app-muted)', fontSize: 18 }} />
                 </div>
             )}
 
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Text
+                        strong
+                        style={{
+                            fontSize: 13,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
                         {ev.personFullName ?? '—'}
                     </Text>
+
                     {ev.isSuspect && <span style={{ fontSize: 13 }}>⚠️</span>}
-                    <span style={{
-                        fontSize: 9, fontWeight: 700, color: '#16a34a',
-                        background: '#dcfce7', padding: '1px 6px', borderRadius: 20,
-                        border: '1px solid #bbf7d0', flexShrink: 0,
-                    }}>LIVE</span>
+
+                    <span
+                        style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: '#16a34a',
+                            background: '#dcfce7',
+                            padding: '1px 6px',
+                            borderRadius: 20,
+                            border: '1px solid #bbf7d0',
+                            flexShrink: 0,
+                        }}
+                    >
+                        LIVE
+                    </span>
                 </div>
+
                 <Text style={{ fontSize: 11, color: 'var(--app-muted)' }}>
                     <VideoCameraOutlined style={{ marginLeft: 3, fontSize: 10 }} />
-                    {ev.cameraName} · {dayjs(ev.recognitionDateTime).format('HH:mm:ss')}
+                    {ev.cameraName ?? '—'} · {dayjs(ev.recognitionDateTime).format('HH:mm:ss')}
                 </Text>
             </div>
 
@@ -118,46 +180,76 @@ function LiveChip({ ev, delay = 0 }: { ev: LiveRecognitionEvent; delay?: number 
     );
 }
 
-// ── DB Record Row ─────────────────────────────────────────
+// ── DB Row ───────────────────────────────────────────────
 function DbRow({ rec }: { rec: RecognitionDto }) {
     const navigate = useNavigate();
-    return (
-        <div className="db-row"
-            onClick={() => rec.personId && navigate(`/recognition/person/${rec.personId}`)}>
 
+    return (
+        <div
+            className="db-row"
+            onClick={() => rec.personId && navigate(`/recognition/person/${rec.personId}`)}
+        >
             {rec.snapshotPath ? (
-                <img src={buildUrl(rec.snapshotPath)} alt=""
+                <img
+                    src={buildUrl(rec.snapshotPath)}
+                    alt=""
                     style={{
-                        width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
-                        border: `2px solid ${scoreColor(rec.recognitionScore)}`
-                    }} />
+                        width: 40,
+                        height: 40,
+                        borderRadius: 8,
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                        border: `2px solid ${scoreColor(rec.recognitionScore)}`,
+                    }}
+                />
             ) : (
-                <div style={{
-                    width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                    background: 'var(--app-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
+                <div
+                    style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        background: 'var(--app-surface-2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
                     <UserOutlined style={{ color: 'var(--app-muted)', fontSize: 16 }} />
                 </div>
             )}
 
             <div style={{ flex: 1, minWidth: 0 }}>
-                <Text strong style={{
-                    fontSize: 12, display: 'block',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>
+                <Text
+                    strong
+                    style={{
+                        fontSize: 12,
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
                     {rec.personFullName ?? '—'}
                 </Text>
                 <Text style={{ fontSize: 11, color: 'var(--app-muted)' }}>
                     <VideoCameraOutlined style={{ marginLeft: 3, fontSize: 10 }} />
-                    {rec.cameraName} · {dayjs(rec.recognitionDateTime).format('HH:mm:ss')}
+                    {rec.cameraName ?? '—'} · {dayjs(rec.recognitionDateTime).format('HH:mm:ss')}
                 </Text>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
                 <ScoreBar score={rec.recognitionScore} />
-                <Tag color={rec.recognitionStatus === RecognitionStatus.Confirmed ? 'success'
-                    : rec.recognitionStatus === RecognitionStatus.Pending ? 'warning' : 'default'}
-                    style={{ fontSize: 10, margin: 0 }}>
+                <Tag
+                    color={
+                        rec.recognitionStatus === RecognitionStatus.Confirmed
+                            ? 'success'
+                            : rec.recognitionStatus === RecognitionStatus.Pending
+                                ? 'warning'
+                                : 'default'
+                    }
+                    style={{ fontSize: 10, margin: 0 }}
+                >
                     {RecognitionStatusLabel[rec.recognitionStatus]}
                 </Tag>
             </div>
@@ -170,44 +262,84 @@ function DbRow({ rec }: { rec: RecognitionDto }) {
 // ════════════════════════════════════════════════════════
 export default function LiveResultsPage() {
     const navigate = useNavigate();
-
-    // ── SignalR live events ───────────────────────────────
-    const { events, isConnected, clearEvents } = useSignalRRecognition();
-
-    // ── DB records ────────────────────────────────────────
-    const { recognitions, isLoading, isFetching, refetch, filters, updateFilter, clearFilters, stats }
-        = useRecognitions({ isMatch: true });
-
-    const { data: cameras = [] } = useQuery<CameraDto[]>({
-        queryKey: ['cameras'],
-        queryFn: () => getCameras(),
-    });
+    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
     const [search, setSearch] = useState('');
 
-    const filteredDB = recognitions.filter(r =>
-        !search || r.personFullName?.includes(search) || r.cameraName?.includes(search)
-    );
+    const { events, isConnected, clearEvents } = useSignalRRecognition();
+
+    const {
+        recognitions,
+        isLoading,
+        isFetching,
+        refetch,
+        filters,
+        updateFilter,
+        clearFilters,
+        stats,
+    } = useRecognitions({ isMatch: true });
+
+    const { data: cameras = [] } = useQuery<CameraDto[]>({
+        queryKey: ['cameras', currentDeviceId],
+        queryFn: () => getCameras(),
+    });
+
+    useEffect(() => {
+        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
+
+        window.addEventListener('storage', syncDevice);
+        window.addEventListener('focus', syncDevice);
+
+        return () => {
+            window.removeEventListener('storage', syncDevice);
+            window.removeEventListener('focus', syncDevice);
+        };
+    }, []);
+
+    const filteredDB = useMemo(() => {
+        const q = normalizeText(search);
+        if (!q) return recognitions;
+
+        return recognitions.filter(r =>
+            normalizeText(r.personFullName).includes(q) ||
+            normalizeText(r.cameraName).includes(q)
+        );
+    }, [recognitions, search]);
+
+    const refreshAll = () => {
+        refetch();
+    };
 
     return (
         <>
             <style>{CSS}</style>
 
             <div style={{ background: 'var(--app-page-bg)', minHeight: '100vh', direction: 'rtl' }}>
-
-                {/* ── Top bar ──────────────────────────── */}
-                <div style={{
-                    background: 'linear-gradient(135deg,var(--app-hero-start),var(--app-hero-end))', padding: '10px 20px',
-                    display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center', flexWrap: 'wrap', gap: 10,
-                }}>
+                <div
+                    style={{
+                        background: 'linear-gradient(135deg,var(--app-hero-start),var(--app-hero-end))',
+                        padding: '10px 20px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                    }}
+                >
                     <Space size={12} align="center">
-                        <div style={{
-                            width: 36, height: 36, borderRadius: 9,
-                            background: 'linear-gradient(135deg,#16a34a,#059669)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
+                        <div
+                            style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 9,
+                                background: 'linear-gradient(135deg,#16a34a,#059669)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
                             <CheckCircleOutlined style={{ color: '#fff', fontSize: 18 }} />
                         </div>
+
                         <div>
                             <Text style={{ color: '#fff', fontWeight: 700, fontSize: 14, display: 'block' }}>
                                 نتائج التعرف المباشر
@@ -215,6 +347,12 @@ export default function LiveResultsPage() {
                             <Text style={{ color: '#dbeafe', fontSize: 11 }}>
                                 SignalR مباشر + سجل قاعدة البيانات
                             </Text>
+                            <div style={{ marginTop: 2 }}>
+                                <Text style={{ color: '#bfdbfe', fontSize: 11 }}>
+                                    <LinkOutlined style={{ marginLeft: 4 }} />
+                                    الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
+                                </Text>
+                            </div>
                         </div>
                     </Space>
 
@@ -224,52 +362,125 @@ export default function LiveResultsPage() {
                             { label: 'سجل DB', value: recognitions.length, color: '#60a5fa' },
                             { label: 'متوسط الدقة', value: `${Math.round(stats.avgScore * 100)}%`, color: '#a78bfa' },
                         ].map(s => (
-                            <div key={s.label} style={{
-                                background: 'var(--app-surface-2)', border: '1px solid var(--app-border)',
-                                borderRadius: 8, padding: '4px 12px', textAlign: 'center',
-                            }}>
+                            <div
+                                key={s.label}
+                                style={{
+                                    background: 'var(--app-surface-2)',
+                                    border: '1px solid var(--app-border)',
+                                    borderRadius: 8,
+                                    padding: '4px 12px',
+                                    textAlign: 'center',
+                                }}
+                            >
                                 <div style={{ fontSize: 15, fontWeight: 700, color: s.color }}>{s.value}</div>
                                 <div style={{ fontSize: 10, color: 'var(--app-muted)' }}>{s.label}</div>
                             </div>
                         ))}
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{
-                                width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
-                                background: isConnected ? '#22c55e' : '#ef4444',
-                                animation: isConnected ? 'pulse 1.5s infinite' : 'none',
-                            }} />
-                            <Text style={{
-                                color: isConnected ? '#22c55e' : '#ef4444',
-                                fontWeight: 700, fontSize: 12
-                            }}>
+                            <span
+                                style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    display: 'inline-block',
+                                    background: isConnected ? '#22c55e' : '#ef4444',
+                                    animation: isConnected ? 'pulse 1.5s infinite' : 'none',
+                                }}
+                            />
+                            <Text
+                                style={{
+                                    color: isConnected ? '#22c55e' : '#ef4444',
+                                    fontWeight: 700,
+                                    fontSize: 12,
+                                }}
+                            >
                                 {isConnected ? 'LIVE' : 'OFF'}
                             </Text>
                         </div>
-                        <Button size="small" icon={<ReloadOutlined spin={isFetching} />}
-                            onClick={() => refetch()} style={{ borderRadius: 7 }} />
+
+                        <Button
+                            size="small"
+                            icon={<ReloadOutlined spin={isFetching} />}
+                            onClick={refreshAll}
+                            style={{ borderRadius: 7 }}
+                        />
                     </Space>
                 </div>
 
-                {/* ── Filters ──────────────────────────── */}
-                <div style={{
-                    background: 'var(--app-surface)', borderBottom: '1px solid var(--app-border)',
-                    padding: '10px 20px', display: 'flex', gap: 10,
-                    alignItems: 'center', flexWrap: 'wrap',
-                }}>
-                    <Input prefix={<SearchOutlined style={{ color: 'var(--app-muted)' }} />}
+                {!currentDeviceId && (
+                    <div style={{ padding: '12px 20px 0' }}>
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="لم يتم اختيار الجهاز الحالي"
+                            description={
+                                <Space direction="vertical" size={8}>
+                                    <Text>افتح صفحة المراقبة أولًا وحدد هل هذا جهاز جديد أو قديم حتى تظهر النتائج الخاصة به.</Text>
+                                    <Button
+                                        size="small"
+                                        type="primary"
+                                        icon={<MonitorOutlined />}
+                                        onClick={() => navigate('/cameras/monitor')}
+                                        style={{ width: 'fit-content' }}
+                                    >
+                                        فتح صفحة اختيار الجهاز
+                                    </Button>
+                                </Space>
+                            }
+                        />
+                    </div>
+                )}
+
+                <div
+                    style={{
+                        background: 'var(--app-surface)',
+                        borderBottom: '1px solid var(--app-border)',
+                        padding: '10px 20px',
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                    }}
+                >
+                    <Input
+                        prefix={<SearchOutlined style={{ color: 'var(--app-muted)' }} />}
                         placeholder="بحث بالاسم أو الكاميرا…"
-                        value={search} onChange={e => setSearch(e.target.value)}
-                        style={{ width: 220, borderRadius: 9 }} allowClear />
-                    <Select placeholder="الكاميرا" allowClear style={{ width: 160 }}
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        style={{ width: 220, borderRadius: 9 }}
+                        allowClear
+                    />
+
+                    <Select
+                        placeholder="الكاميرا"
+                        allowClear
+                        style={{ width: 160 }}
                         onChange={v => updateFilter({ cameraId: v })}
-                        options={cameras.map(c => ({ value: c.cameraId, label: c.name }))} />
-                    <Select placeholder="الحالة" allowClear style={{ width: 140 }}
+                        options={cameras.map(c => ({ value: c.cameraId, label: c.name }))}
+                    />
+
+                    <Select
+                        placeholder="الحالة"
+                        allowClear
+                        style={{ width: 140 }}
                         onChange={v => updateFilter({ status: v })}
-                        options={[0, 1, 2, 3].map(v => ({ value: v, label: RecognitionStatusLabel[v] }))} />
+                        options={[0, 1, 2, 3].map(v => ({ value: v, label: RecognitionStatusLabel[v] }))}
+                    />
+
                     {(filters.cameraId || filters.status !== undefined || search) && (
-                        <Button size="small" onClick={() => { clearFilters(); setSearch(''); }}
-                            style={{ borderRadius: 7 }}>مسح</Button>
+                        <Button
+                            size="small"
+                            onClick={() => {
+                                clearFilters();
+                                setSearch('');
+                            }}
+                            style={{ borderRadius: 7 }}
+                        >
+                            مسح
+                        </Button>
                     )}
+
                     <Text type="secondary" style={{ fontSize: 12, marginRight: 'auto' }}>
                         {filteredDB.length} سجل
                     </Text>
@@ -277,20 +488,25 @@ export default function LiveResultsPage() {
 
                 <div style={{ padding: '14px 20px' }}>
                     <Row gutter={[14, 14]}>
-
-                        {/* ── Column 1: SignalR live events ── */}
                         <Col xs={24} lg={12}>
-                            <div style={{
-                                background: 'var(--app-surface)', border: '1px solid var(--app-border)',
-                                borderRadius: 14, overflow: 'hidden',
-                                boxShadow: '0 2px 8px rgba(15,23,42,.06)',
-                            }}>
-                                {/* Header */}
-                                <div style={{
-                                    padding: '12px 16px',
-                                    background: 'linear-gradient(90deg,var(--app-hero-start),var(--app-hero-end))',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                }}>
+                            <div
+                                style={{
+                                    background: 'var(--app-surface)',
+                                    border: '1px solid var(--app-border)',
+                                    borderRadius: 14,
+                                    overflow: 'hidden',
+                                    boxShadow: '0 2px 8px rgba(15,23,42,.06)',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        padding: '12px 16px',
+                                        background: 'linear-gradient(90deg,var(--app-hero-start),var(--app-hero-end))',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <Space size={8}>
                                         <ThunderboltOutlined style={{ color: '#22c55e', fontSize: 16 }} />
                                         <Text style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
@@ -298,6 +514,7 @@ export default function LiveResultsPage() {
                                         </Text>
                                         {events.length > 0 && <Badge count={events.length} />}
                                     </Space>
+
                                     <Space>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             <WifiOutlined style={{ color: isConnected ? '#22c55e' : '#ef4444', fontSize: 12 }} />
@@ -305,20 +522,29 @@ export default function LiveResultsPage() {
                                                 {isConnected ? 'متصل' : 'منقطع'}
                                             </Text>
                                         </div>
+
                                         {events.length > 0 && (
-                                            <Button size="small" onClick={clearEvents}
-                                                style={{ borderRadius: 7, fontSize: 11, height: 24 }}>
+                                            <Button
+                                                size="small"
+                                                onClick={clearEvents}
+                                                style={{ borderRadius: 7, fontSize: 11, height: 24 }}
+                                            >
                                                 مسح
                                             </Button>
                                         )}
                                     </Space>
                                 </div>
 
-                                {/* Events */}
-                                <div style={{
-                                    padding: '10px', maxHeight: 480,
-                                    overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6,
-                                }}>
+                                <div
+                                    style={{
+                                        padding: '10px',
+                                        maxHeight: 480,
+                                        overflowY: 'auto',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 6,
+                                    }}
+                                >
                                     {events.length === 0 ? (
                                         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--app-muted)' }}>
                                             <ThunderboltOutlined style={{ fontSize: 40, marginBottom: 10, display: 'block' }} />
@@ -332,44 +558,58 @@ export default function LiveResultsPage() {
                                         </div>
                                     ) : (
                                         events.map((ev, i) => (
-                                            <LiveChip key={ev.recognitionId ?? i} ev={ev} delay={i * 20} />
+                                            <LiveChip
+                                                key={`${ev.recognitionId ?? 'evt'}-${i}-${ev.recognitionDateTime}`}
+                                                ev={ev}
+                                                delay={i * 20}
+                                            />
                                         ))
                                     )}
                                 </div>
                             </div>
                         </Col>
 
-                        {/* ── Column 2: DB records ─────────── */}
                         <Col xs={24} lg={12}>
-                            <div style={{
-                                background: 'var(--app-surface)', border: '1px solid var(--app-border)',
-                                borderRadius: 14, overflow: 'hidden',
-                                boxShadow: '0 2px 8px rgba(15,23,42,.06)',
-                            }}>
-                                {/* Header */}
-                                <div style={{
-                                    padding: '12px 16px', borderBottom: '1px solid #f1f5f9',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                }}>
+                            <div
+                                style={{
+                                    background: 'var(--app-surface)',
+                                    border: '1px solid var(--app-border)',
+                                    borderRadius: 14,
+                                    overflow: 'hidden',
+                                    boxShadow: '0 2px 8px rgba(15,23,42,.06)',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        padding: '12px 16px',
+                                        borderBottom: '1px solid #f1f5f9',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                    }}
+                                >
                                     <Space size={8}>
                                         <ClockCircleOutlined style={{ color: '#2563eb', fontSize: 16 }} />
                                         <Text style={{ fontWeight: 700, fontSize: 14 }}>
                                             سجل قاعدة البيانات
                                         </Text>
                                     </Space>
+
                                     <Space>
                                         <Text type="secondary" style={{ fontSize: 12 }}>
                                             {filteredDB.length} نتيجة
                                         </Text>
-                                        <Button size="small" type="link"
+                                        <Button
+                                            size="small"
+                                            type="link"
                                             onClick={() => navigate('/recognition/results')}
-                                            style={{ padding: 0, fontSize: 11 }}>
+                                            style={{ padding: 0, fontSize: 11 }}
+                                        >
                                             الكل ←
                                         </Button>
                                     </Space>
                                 </div>
 
-                                {/* Records */}
                                 <div style={{ padding: '10px', maxHeight: 480, overflowY: 'auto' }}>
                                     {isLoading ? (
                                         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--app-muted)' }}>
@@ -378,7 +618,14 @@ export default function LiveResultsPage() {
                                         </div>
                                     ) : filteredDB.length === 0 ? (
                                         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--app-muted)' }}>
-                                            <CheckCircleOutlined style={{ fontSize: 40, marginBottom: 10, display: 'block', color: '#bbf7d0' }} />
+                                            <CheckCircleOutlined
+                                                style={{
+                                                    fontSize: 40,
+                                                    marginBottom: 10,
+                                                    display: 'block',
+                                                    color: '#bbf7d0',
+                                                }}
+                                            />
                                             <Text style={{ color: 'var(--app-muted)', fontSize: 13 }}>لا توجد سجلات</Text>
                                         </div>
                                     ) : (

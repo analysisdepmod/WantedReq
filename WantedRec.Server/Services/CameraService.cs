@@ -20,13 +20,28 @@ namespace WantedRec.Server.Services
 
         // ── GetAllAsync ───────────────────────────────────────
         public async Task<List<CameraDto>> GetAllAsync(
-            bool? isActive = null,
-            CancellationToken ct = default)
+       bool? isActive = null,
+       string? userId = null,
+       int? userDeviceId = null,
+       CancellationToken ct = default)
         {
             var query = _context.Cameras.AsNoTracking().AsQueryable();
 
             if (isActive.HasValue)
                 query = query.Where(c => c.IsActive == isActive.Value);
+
+            // الكامرات الشبكية تظهر للجميع
+            // الكامرات المحلية فقط للجهاز الحالي التابع للمستخدم الحالي
+            query = query.Where(c =>
+                !string.IsNullOrWhiteSpace(c.StreamUrl) ||
+                (
+                    c.StreamUrl == null &&
+                    c.UserDeviceId != null &&
+                    userDeviceId != null &&
+                    c.UserDeviceId == userDeviceId &&
+                    c.UserDevice!.UserId == userId
+                )
+            );
 
             return await query
                 .OrderBy(c => c.Area)
@@ -42,6 +57,7 @@ namespace WantedRec.Server.Services
                     IsActive = c.IsActive,
                     StreamUrl = c.StreamUrl,
                     LocalDeviceIndex = c.LocalDeviceIndex,
+                    UserDeviceId = c.UserDeviceId,
                 })
                 .ToListAsync(ct);
         }
@@ -158,8 +174,9 @@ namespace WantedRec.Server.Services
             target.Code = src.Code;
             target.Description = src.Description;
             target.IpAddress = src.IpAddress;
-            target.StreamUrl = src.StreamUrl;
-            target.LocalDeviceIndex = src.LocalDeviceIndex;
+            target.StreamUrl = string.IsNullOrWhiteSpace(src.StreamUrl) ? null : src.StreamUrl;
+            target.LocalDeviceIndex = target.StreamUrl is null ? src.LocalDeviceIndex : null;
+            target.UserDeviceId = target.StreamUrl is null ? src.UserDeviceId : null;
             target.Latitude = src.Latitude;
             target.Longitude = src.Longitude;
             target.Floor = src.Floor;

@@ -1,10 +1,10 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import {
-    getCameras, getCameraById,
-    activateCamera, deactivateCamera,
+    getCameraById,
+    activateCamera,
+    deactivateCamera,
 } from '../api/camerasApi';
 import axiosInstance from '../api';
 import type { CameraDto, CameraDetailDto } from '../types/camera.types';
@@ -16,6 +16,7 @@ export interface CameraUpsertPayload {
     ipAddress: string;
     streamUrl?: string;
     localDeviceIndex?: number;
+    userDeviceId?: number;
     latitude?: number;
     longitude?: number;
     floor?: string;
@@ -27,6 +28,20 @@ export interface CameraUpsertPayload {
     notes?: string;
 }
 
+const fetchCameras = (
+    filterActive?: boolean,
+    currentDeviceId?: number | null
+): Promise<CameraDto[]> =>
+    axiosInstance
+        .get('/cameras', {
+            params: filterActive !== undefined ? { isActive: filterActive } : undefined,
+            headers:
+                currentDeviceId !== undefined && currentDeviceId !== null
+                    ? { 'X-User-Device-Id': String(currentDeviceId) }
+                    : undefined,
+        })
+        .then(r => r.data.data);
+
 const createCamera = (dto: CameraUpsertPayload): Promise<CameraDetailDto> =>
     axiosInstance.post('/cameras', dto).then(r => r.data.data);
 
@@ -37,7 +52,7 @@ const deleteCamera = (id: number): Promise<void> =>
     axiosInstance.delete(`/cameras/${id}`).then(() => undefined);
 
 // ── Hook ──────────────────────────────────────────────────
-export function useCameras(filterActive?: boolean) {
+export function useCameras(filterActive?: boolean, currentDeviceId?: number | null) {
     const qc = useQueryClient();
     const [msgApi, ctx] = message.useMessage();
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -45,8 +60,8 @@ export function useCameras(filterActive?: boolean) {
     const [togglingId, setTogglingId] = useState<number | null>(null);
 
     const query = useQuery({
-        queryKey: ['cameras', filterActive],
-        queryFn: () => getCameras(filterActive !== undefined ? { isActive: filterActive } : undefined),
+        queryKey: ['cameras', filterActive, currentDeviceId],
+        queryFn: () => fetchCameras(filterActive, currentDeviceId),
         refetchInterval: 30_000,
     });
 
@@ -54,19 +69,31 @@ export function useCameras(filterActive?: boolean) {
 
     const createMutation = useMutation({
         mutationFn: createCamera,
-        onSuccess: () => { msgApi.success('تمت إضافة الكاميرا'); invalidate(); setModalOpen(false); },
+        onSuccess: () => {
+            msgApi.success('تمت إضافة الكاميرا');
+            invalidate();
+            setModalOpen(false);
+        },
         onError: () => msgApi.error('فشل إنشاء الكاميرا'),
     });
 
     const updateMutation = useMutation({
         mutationFn: ({ id, dto }: { id: number; dto: CameraUpsertPayload }) => updateCamera(id, dto),
-        onSuccess: () => { msgApi.success('تم تحديث الكاميرا'); invalidate(); setModalOpen(false); setEditingId(null); },
+        onSuccess: () => {
+            msgApi.success('تم تحديث الكاميرا');
+            invalidate();
+            setModalOpen(false);
+            setEditingId(null);
+        },
         onError: () => msgApi.error('فشل تحديث الكاميرا'),
     });
 
     const deleteMutation = useMutation({
         mutationFn: deleteCamera,
-        onSuccess: () => { msgApi.success('تمت معالجة طلب الحذف'); invalidate(); },
+        onSuccess: () => {
+            msgApi.success('تمت معالجة طلب الحذف');
+            invalidate();
+        },
         onError: () => msgApi.error('فشل الحذف'),
     });
 
@@ -83,31 +110,65 @@ export function useCameras(filterActive?: boolean) {
         onSettled: () => setTogglingId(null),
     });
 
-    const openCreate = () => { setEditingId(null); setModalOpen(true); };
-    const openEdit   = (id: number) => { setEditingId(id); setModalOpen(true); };
-    const closeModal = () => { setModalOpen(false); setEditingId(null); };
+    const openCreate = () => {
+        setEditingId(null);
+        setModalOpen(true);
+    };
+
+    const openEdit = (id: number) => {
+        setEditingId(id);
+        setModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setModalOpen(false);
+        setEditingId(null);
+    };
 
     const save = (dto: CameraUpsertPayload) => {
-        if (editingId) updateMutation.mutate({ id: editingId, dto });
-        else           createMutation.mutate(dto);
+        const isLocal = !dto.streamUrl?.trim();
+
+        const finalDto: CameraUpsertPayload = {
+            ...dto,
+            streamUrl: dto.streamUrl?.trim() || undefined,
+            ipAddress: dto.ipAddress || 'local',
+            userDeviceId: isLocal ? (currentDeviceId ?? undefined) : undefined,
+            localDeviceIndex: isLocal ? dto.localDeviceIndex : undefined,
+        };
+
+        if (isLocal && !currentDeviceId) {
+            msgApi.error('لا يوجد جهاز حالي مختار. افتح صفحة المراقبة أولًا وحدد الجهاز.');
+            return;
+        }
+
+        if (editingId) updateMutation.mutate({ id: editingId, dto: finalDto });
+        else createMutation.mutate(finalDto);
     };
 
     return {
-        cameras:    query.data ?? [],
-        isLoading:  query.isLoading,
+        cameras: query.data ?? [],
+        isLoading: query.isLoading,
         isFetching: query.isFetching,
-        refetch:    query.refetch,
+        refetch: query.refetch,
+
         // modal
-        modalOpen, editingId, openCreate, openEdit, closeModal,
+        modalOpen,
+        editingId,
+        openCreate,
+        openEdit,
+        closeModal,
+
         // actions
         save,
-        isSaving:   createMutation.isPending || updateMutation.isPending,
+        isSaving: createMutation.isPending || updateMutation.isPending,
         deleteCamera: (id: number) => deleteMutation.mutate(id),
-        isDeleting:   deleteMutation.isPending,
+        isDeleting: deleteMutation.isPending,
         toggleCamera: (cam: CameraDto) => toggleMutation.mutate(cam),
         togglingId,
+
         // context
-        ctx, msgApi,
+        ctx,
+        msgApi,
     };
 }
 
@@ -115,7 +176,7 @@ export function useCameras(filterActive?: boolean) {
 export function useCameraDetail(id: number) {
     return useQuery({
         queryKey: ['camera', id],
-        queryFn:  () => getCameraById(id),
-        enabled:  !!id && !isNaN(id),
+        queryFn: () => getCameraById(id),
+        enabled: !!id && !isNaN(id),
     });
 }

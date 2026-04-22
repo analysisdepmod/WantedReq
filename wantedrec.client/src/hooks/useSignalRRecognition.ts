@@ -1,12 +1,15 @@
 ﻿// ════════════════════════════════════════════════════════
 //  src/hooks/useSignalRRecognition.ts
 //  هوك الاستقبال الفوري لأحداث التعرف عبر SignalR
+//  نسخة تدعم الفلترة حسب الجهاز الحالي
 // ════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { getRecognitionConnection, ensureStart } from '../signalr/signalrConnections';
+
+const STORAGE_KEY = 'current_device_id';
 
 export interface LiveRecognitionEvent {
     recognitionId?: number;
@@ -19,6 +22,12 @@ export interface LiveRecognitionEvent {
     primaryImageBase64?: string;
     snapshotPath?: string;
     recognitionDateTime: string;
+
+    // جديد — مهم جدًا
+    userDeviceId?: number | null;
+
+    // اختياري إذا تريد تمييز أوضح من الباكند
+    isLocalCamera?: boolean;
 }
 
 const suspectAudio = new Audio('/sounds/alert.wav');
@@ -30,6 +39,14 @@ function playSound(isSuspect: boolean) {
     audio.play().catch(() => { });
 }
 
+function getCurrentDeviceId(): number | null {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
 export function useSignalRRecognition() {
     const qc = useQueryClient();
     const [events, setEvents] = useState<LiveRecognitionEvent[]>([]);
@@ -37,16 +54,32 @@ export function useSignalRRecognition() {
 
     const connection = getRecognitionConnection();
 
+    const shouldAcceptEvent = useCallback((evt: LiveRecognitionEvent) => {
+        const currentDeviceId = getCurrentDeviceId();
+
+        // إذا الحدث محلي ومربوط بجهاز، فلازم يطابق الجهاز الحالي
+        if (evt.userDeviceId !== undefined && evt.userDeviceId !== null) {
+            return currentDeviceId !== null && evt.userDeviceId === currentDeviceId;
+        }
+
+        // إذا ماكو userDeviceId نعتبره عام
+        // مثل كامرات IP / RTSP / URL أو أحداث قديمة غير مفلترة
+        return true;
+    }, []);
+
     const addEvent = useCallback((evt: LiveRecognitionEvent) => {
+        if (!shouldAcceptEvent(evt)) return;
+
         setEvents(prev => [evt, ...prev].slice(0, 200));
 
         // إبطال cache لإجبار التحديث
         qc.invalidateQueries({ queryKey: ['recognitions'] });
+        qc.invalidateQueries({ queryKey: ['recognitions-home'] });
+        qc.invalidateQueries({ queryKey: ['cameras'] });
 
-        // إشعار مرئي
         const msg = evt.isSuspect
-            ? `⚠️ مشتبه به! ${evt.personFullName} — ${evt.cameraName}`
-            : `✅ تعرف: ${evt.personFullName} — ${evt.cameraName}`;
+            ? `⚠️ مشتبه به! ${evt.personFullName ?? 'غير معروف'} — ${evt.cameraName ?? 'كاميرا'}`
+            : `✅ تعرف: ${evt.personFullName ?? 'غير معروف'} — ${evt.cameraName ?? 'كاميرا'}`;
 
         toast(msg, {
             type: evt.isSuspect ? 'error' : 'success',
@@ -56,29 +89,41 @@ export function useSignalRRecognition() {
         });
 
         playSound(evt.isSuspect);
-    }, [qc]);
+    }, [qc, shouldAcceptEvent]);
 
     useEffect(() => {
-        // بدء الاتصال
-        ensureStart(connection, 'RecognitionHub').then(() => {
-            setIsConnected(true);
-        });
+        let mounted = true;
 
-        // استقبال الأحداث
-        connection.on('RecognitionDetected', (data: LiveRecognitionEvent) => {
+        ensureStart(connection, 'RecognitionHub')
+            .then(() => {
+                if (mounted) setIsConnected(true);
+            })
+            .catch(() => {
+                if (mounted) setIsConnected(false);
+            });
+
+        const onRecognitionDetected = (data: LiveRecognitionEvent) => {
             addEvent({
                 ...data,
                 recognitionDateTime: data.recognitionDateTime ?? new Date().toISOString(),
             });
-        });
+        };
 
-        // مراقبة حالة الاتصال
-        connection.onclose(() => setIsConnected(false));
-        connection.onreconnected(() => setIsConnected(true));
-        connection.onreconnecting(() => setIsConnected(false));
+        const onClose = () => setIsConnected(false);
+        const onReconnected = () => setIsConnected(true);
+        const onReconnecting = () => setIsConnected(false);
+
+        connection.on('RecognitionDetected', onRecognitionDetected);
+        connection.onclose(onClose);
+        connection.onreconnected(onReconnected);
+        connection.onreconnecting(onReconnecting);
 
         return () => {
-            connection.off('RecognitionDetected');
+            mounted = false;
+            connection.off('RecognitionDetected', onRecognitionDetected);
+            connection.off('close', onClose as any);
+            connection.off('reconnected', onReconnected as any);
+            connection.off('reconnecting', onReconnecting as any);
         };
     }, [connection, addEvent]);
 

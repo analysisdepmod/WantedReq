@@ -32,5 +32,6 @@ namespace WantedRec.Server.DTOs
         /// يُستخدم فقط لما StreamUrl = null.
         /// </summary>
         public int? LocalDeviceIndex { get; set; }
+        public int? UserDeviceId { get; set; }
     }
 }

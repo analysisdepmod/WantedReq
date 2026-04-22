@@ -60,7 +60,7 @@ const messengerTheme = createTheme({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <Provider store={store}>
-        <StrictMode>
+      
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider theme={messengerTheme}>
                     <CssBaseline />
@@ -84,7 +84,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     </ConfigProvider>
                 </ThemeProvider>
             </QueryClientProvider>
-        </StrictMode>
+     
     </Provider>
 )
 
