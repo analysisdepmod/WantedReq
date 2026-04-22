@@ -1,5 +1,4 @@
-﻿ 
-import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+﻿import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Badge, Tooltip, Button, Dropdown, Avatar, Typography } from 'antd';
 import {
     MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
@@ -7,9 +6,9 @@ import {
     BulbOutlined, BulbFilled, BellOutlined,
     SearchOutlined, SettingOutlined, CheckCircleOutlined,
     UsergroupAddOutlined, GlobalOutlined, UserSwitchOutlined,
-    ThunderboltOutlined, AimOutlined,
+    ThunderboltOutlined,
 } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../app/store';
 import { logout } from '../../app/reducers/authSlice';
@@ -34,7 +33,9 @@ import { PlusOutlined } from '@ant-design/icons';
 const { Sider, Content, Footer } = Layout;
 const { Text } = Typography;
 
-// ── Themes ────────────────────────────────────────────────
+const HEADER_HEIGHT = 62;
+const FOOTER_HEIGHT = 48;
+
 const LIGHT = {
     bg: '#f4f6fb',
     sidebar: '#ffffff',
@@ -62,7 +63,6 @@ const DARK = {
 
 const initial = { numberWord: 0 };
 
-// ── NavItem ───────────────────────────────────────────────
 function NavItem({ to, icon, label, badge, isDark, collapsed, onClick }: {
     to?: string; icon: React.ReactNode; label: string;
     badge?: number; isDark: boolean; collapsed: boolean;
@@ -76,9 +76,13 @@ function NavItem({ to, icon, label, badge, isDark, collapsed, onClick }: {
         <div
             onClick={onClick}
             style={{
-                display: 'flex', alignItems: 'center', gap: 10,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
                 padding: collapsed ? '10px 0' : '10px 14px',
-                borderRadius: 10, marginBottom: 2, cursor: 'pointer',
+                borderRadius: 10,
+                marginBottom: 2,
+                cursor: 'pointer',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 background: isActive ? T.active : 'transparent',
                 borderRight: isActive ? `3px solid ${T.accent}` : '3px solid transparent',
@@ -91,14 +95,19 @@ function NavItem({ to, icon, label, badge, isDark, collapsed, onClick }: {
             <span style={{ fontSize: 17, flexShrink: 0, color: isActive ? T.accent : T.muted }}>
                 {icon}
             </span>
+
             {!collapsed && (
                 <Text style={{
-                    fontSize: 13, fontWeight: isActive ? 600 : 400,
-                    color: 'inherit', flex: 1, whiteSpace: 'nowrap'
+                    fontSize: 13,
+                    fontWeight: isActive ? 600 : 400,
+                    color: 'inherit',
+                    flex: 1,
+                    whiteSpace: 'nowrap'
                 }}>
                     {label}
                 </Text>
             )}
+
             {!collapsed && !!badge && badge > 0 && <Badge count={badge} size="small" />}
         </div>
     );
@@ -110,14 +119,17 @@ function NavItem({ to, icon, label, badge, isDark, collapsed, onClick }: {
     return collapsed ? <Tooltip title={label} placement="left">{node}</Tooltip> : node;
 }
 
-// ── SectionLabel ──────────────────────────────────────────
 function SectionLabel({ label, isDark, collapsed }: { label: string; isDark: boolean; collapsed: boolean }) {
     if (collapsed) return <div style={{ height: 14 }} />;
     const T = isDark ? DARK : LIGHT;
+
     return (
         <div style={{
-            fontSize: 10, fontWeight: 700, color: T.muted,
-            letterSpacing: 1.5, padding: '14px 16px 5px',
+            fontSize: 10,
+            fontWeight: 700,
+            color: T.muted,
+            letterSpacing: 1.5,
+            padding: '14px 16px 5px',
             textTransform: 'uppercase',
         }}>
             {label}
@@ -125,14 +137,13 @@ function SectionLabel({ label, isDark, collapsed }: { label: string; isDark: boo
     );
 }
 
-// ════════════════════════════════════════════════════════
-//  MainLayout
-// ════════════════════════════════════════════════════════
 export default function MainLayout() {
     const { i18n } = useTranslation();
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
+    const location = useLocation();
     const currentUserId = getCurrentUserId() ?? '';
+    const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
     const { arlang, locale } = useSelector((s: RootState) => s.setting);
     const { userRoles, basicUserInfo } = useSelector((s: RootState) => s.auth.loginResponse);
@@ -141,11 +152,9 @@ export default function MainLayout() {
     const [isDark, setIsDark] = useState(false);
     const T = isDark ? DARK : LIGHT;
 
-    // roles
     const isAdmin = userRoles?.includes(RULES.Admin);
     const isManager = userRoles?.includes(RULES.Manager);
 
-    // SignalR
     const { data: notifications = [] } = useNotifications();
     const { events: recEvents, isConnected: recConnected } = useSignalRRecognition();
 
@@ -156,47 +165,105 @@ export default function MainLayout() {
         ensureStart(getRecognitionConnection(), 'RecognitionHub');
     }, []);
 
-    useEffect(() => { i18n.changeLanguage(locale); }, [i18n, locale]);
+    useEffect(() => {
+        i18n.changeLanguage(locale);
+    }, [i18n, locale]);
 
-    const handleLogout = async () => { await dispatch(logout()); navigate('/login'); };
+    useEffect(() => {
+        contentScrollRef.current?.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+        });
+    }, [location.pathname]);
+
+    const handleLogout = async () => {
+        await dispatch(logout());
+        navigate('/login');
+    };
 
     const toggleLang = () => {
-        if (arlang) dispatch(changeDiraction({ dir: 'ltr', locale: 'en', applocale: { enUs }, arlang: false }));
-        else dispatch(changeDiraction({ dir: 'rtl', locale: 'ar', applocale: { arEG }, arlang: true }));
+        if (arlang) {
+            dispatch(changeDiraction({
+                dir: 'ltr',
+                locale: 'en',
+                applocale: { enUs },
+                arlang: false
+            }));
+        } else {
+            dispatch(changeDiraction({
+                dir: 'rtl',
+                locale: 'ar',
+                applocale: { arEG },
+                arlang: true
+            }));
+        }
     };
 
     const openSettings = () => dispatch(setModal({
-        dialogIcon: <PlusOutlined />, isOpen: true,
+        dialogIcon: <PlusOutlined />,
+        isOpen: true,
         content: <Settings row={initial} flag={1} />,
-        width: 1100, height: 900, title: 'الإعدادات',
+        width: 1100,
+        height: 900,
+        title: 'الإعدادات',
     }));
 
     const globalCSS = `
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
       * { transition: background-color .22s, color .22s, border-color .22s; }
-      ::-webkit-scrollbar { width: 4px; }
+
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
-      .ant-layout { background: ${T.bg} !important; }
+
+      .ant-layout {
+        background: ${T.bg} !important;
+      }
     `;
 
     return (
         <>
             <style>{globalCSS}</style>
 
-            <Layout style={{ minHeight: '100vh', background: T.bg, direction: arlang ? 'rtl' : 'ltr' }}>
-
-                {/* ════════ HEADER ════════ */}
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000,
-                    height: 62, background: T.header, borderBottom: `1px solid ${T.border}`,
-                    boxShadow: '0 1px 8px rgba(0,0,0,.06)',
-                    display: 'flex', alignItems: 'center', padding: '0 20px',
-                    justifyContent: 'space-between',
-                }}>
-                    {/* Logo */}
+            <Layout
+                style={{
+                    height: '100vh',
+                    background: T.bg,
+                    direction: arlang ? 'rtl' : 'ltr',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* HEADER */}
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                        height: HEADER_HEIGHT,
+                        background: T.header,
+                        borderBottom: `1px solid ${T.border}`,
+                        boxShadow: '0 1px 8px rgba(0,0,0,.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0 20px',
+                        justifyContent: 'space-between',
+                    }}
+                >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <img src="/Raj1.png" height={44} width={44}
-                            style={{ borderRadius: 10, flexShrink: 0 }} alt="" />
+                        <img
+                            src="/Raj1.png"
+                            height={44}
+                            width={44}
+                            style={{ borderRadius: 10, flexShrink: 0 }}
+                            alt=""
+                        />
                         <div>
                             <div style={{ fontSize: 13, fontWeight: 800, color: T.text, lineHeight: 1.2 }}>
                                 {basicUserInfo?.unitName ?? 'نظام التعرف على الوجه'}
@@ -205,61 +272,77 @@ export default function MainLayout() {
                         </div>
                     </div>
 
-                    {/* Center status */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <span style={{
-                                width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
-                                background: recConnected ? '#22c55e' : '#ef4444',
-                            }} />
+                            <span
+                                style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    display: 'inline-block',
+                                    background: recConnected ? '#22c55e' : '#ef4444',
+                                }}
+                            />
                             <Text style={{ fontSize: 11, color: T.muted }}>
                                 {recConnected ? 'متصل' : 'منقطع'}
                             </Text>
                         </div>
 
                         {recEvents.length > 0 && (
-                            <div style={{
-                                fontSize: 11, fontWeight: 700, color: '#16a34a',
-                                background: '#dcfce7', padding: '2px 10px',
-                                borderRadius: 20, border: '1px solid #bbf7d0',
-                                cursor: 'pointer',
-                            }}
-                                onClick={() => navigate('/recognition/results')}>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: '#16a34a',
+                                    background: '#dcfce7',
+                                    padding: '2px 10px',
+                                    borderRadius: 20,
+                                    border: '1px solid #bbf7d0',
+                                    cursor: 'pointer',
+                                }}
+                                onClick={() => navigate('/recognition/results')}
+                            >
                                 {recEvents.length} تعرف جديد ←
                             </div>
                         )}
                     </div>
 
-                    {/* Right actions */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {/* Dark / Light */}
                         <Tooltip title={isDark ? 'الوضع المضيء' : 'الوضع الداكن'}>
-                            <Button type="text" shape="circle"
-                                icon={isDark
-                                    ? <BulbFilled style={{ color: '#f59e0b', fontSize: 18 }} />
-                                    : <BulbOutlined style={{ color: T.muted, fontSize: 18 }} />}
+                            <Button
+                                type="text"
+                                shape="circle"
+                                icon={
+                                    isDark
+                                        ? <BulbFilled style={{ color: '#f59e0b', fontSize: 18 }} />
+                                        : <BulbOutlined style={{ color: T.muted, fontSize: 18 }} />
+                                }
                                 onClick={() => setIsDark(v => !v)}
-                                style={{ background: T.hover, border: 'none' }} />
+                                style={{ background: T.hover, border: 'none' }}
+                            />
                         </Tooltip>
 
-                        {/* Language */}
                         <Tooltip title="تبديل اللغة">
-                            <Button type="text" shape="circle"
+                            <Button
+                                type="text"
+                                shape="circle"
                                 icon={<GlobalOutlined style={{ color: T.muted, fontSize: 16 }} />}
                                 onClick={toggleLang}
-                                style={{ background: T.hover, border: 'none' }} />
+                                style={{ background: T.hover, border: 'none' }}
+                            />
                         </Tooltip>
 
-                        {/* Notifications */}
                         <Tooltip title="الإشعارات">
                             <Badge count={notifications.length} size="small" offset={[-4, 4]}>
-                                <Button type="text" shape="circle"
+                                <Button
+                                    type="text"
+                                    shape="circle"
                                     icon={<BellOutlined style={{ color: T.muted, fontSize: 16 }} />}
-                                    style={{ background: T.hover, border: 'none' }} />
+                                    style={{ background: T.hover, border: 'none' }}
+                                />
                             </Badge>
                         </Tooltip>
 
-                        {/* User dropdown */}
                         <Dropdown
                             menu={{
                                 items: [
@@ -270,13 +353,18 @@ export default function MainLayout() {
                             }}
                             trigger={['click']}
                         >
-                            <div style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                cursor: 'pointer', padding: '4px 10px', borderRadius: 10,
-                                background: T.hover,
-                            }}>
-                                <Avatar size={30} icon={<UserOutlined />}
-                                    style={{ background: '#2563eb' }} />
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    cursor: 'pointer',
+                                    padding: '4px 10px',
+                                    borderRadius: 10,
+                                    background: T.hover,
+                                }}
+                            >
+                                <Avatar size={30} icon={<UserOutlined />} style={{ background: '#2563eb' }} />
                                 <div style={{ lineHeight: 1.3 }}>
                                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
                                         {basicUserInfo?.rankName} / {basicUserInfo?.userName}
@@ -286,129 +374,166 @@ export default function MainLayout() {
                             </div>
                         </Dropdown>
 
-                        <img src="/wanted.png" height={44} width={44}
-                            style={{ borderRadius: 10 }} alt="" />
+                        <img src="/wanted.png" height={44} width={44} style={{ borderRadius: 10 }} alt="" />
                     </div>
                 </div>
 
-                {/* ════════ BODY ════════ */}
-                <Layout style={{ marginTop: 62, background: T.bg }}>
-
-                    {/* ── SIDEBAR ─────────────────────── */}
+                {/* BODY */}
+                <Layout
+                    style={{
+                        marginTop: HEADER_HEIGHT,
+                        height: `calc(100vh - ${HEADER_HEIGHT}px)`,
+                        background: T.bg,
+                        overflow: 'hidden',
+                    }}
+                >
                     <Sider
-                        width={240} collapsedWidth={64} collapsed={collapsed}
-                        trigger={null} collapsible
+                        width={240}
+                        collapsedWidth={64}
+                        collapsed={collapsed}
+                        trigger={null}
+                        collapsible
                         style={{
-                            position: 'fixed', top: 62, bottom: 0, zIndex: 900,
-                            background: T.sidebar, overflow: 'auto',
+                            position: 'fixed',
+                            top: HEADER_HEIGHT,
+                            bottom: 0,
+                            zIndex: 900,
+                            background: T.sidebar,
+                            overflow: 'hidden',
                             borderLeft: arlang ? 'none' : `1px solid ${T.border}`,
                             borderRight: arlang ? `1px solid ${T.border}` : 'none',
-                            display: 'flex', flexDirection: 'column',
+                            display: 'flex',
+                            flexDirection: 'column',
                         }}
                     >
-                        {/* Collapse toggle */}
                         <div style={{ padding: '10px 8px', borderBottom: `1px solid ${T.border}` }}>
-                            <Button type="text" block
-                                icon={collapsed
-                                    ? <MenuUnfoldOutlined style={{ color: T.muted }} />
-                                    : <MenuFoldOutlined style={{ color: T.muted }} />}
+                            <Button
+                                type="text"
+                                block
+                                icon={
+                                    collapsed
+                                        ? <MenuUnfoldOutlined style={{ color: T.muted }} />
+                                        : <MenuFoldOutlined style={{ color: T.muted }} />
+                                }
                                 onClick={() => setCollapsed(v => !v)}
-                                style={{ background: T.hover, border: 'none', borderRadius: 8 }} />
+                                style={{ background: T.hover, border: 'none', borderRadius: 8 }}
+                            />
                         </div>
 
-                        {/* ── Nav ─────────────────────── */}
-                        <div style={{ flex: 1, padding: '8px', overflowY: 'auto' }}>
-
-                            {/* الرئيسية */}
+                        <div style={{ flex: 1, padding: '8px', overflowY: 'auto', minHeight: 0 }}>
                             <SectionLabel label="الرئيسية" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/"
-                                icon={<HomeOutlined />} label="الصفحة الرئيسية"
-                                isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/" icon={<HomeOutlined />} label="الصفحة الرئيسية" isDark={isDark} collapsed={collapsed} />
 
-                            {/* الأشخاص */}
                             <SectionLabel label="الأشخاص" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/Indexpersons"
-                                icon={<UsergroupAddOutlined />} label="قائمة الأشخاص"
-                                isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/addperson"
-                                icon={<UserOutlined />} label="إضافة شخص"
-                                isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/Indexpersons" icon={<UsergroupAddOutlined />} label="قائمة الأشخاص" isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/addperson" icon={<UserOutlined />} label="إضافة شخص" isDark={isDark} collapsed={collapsed} />
 
-                            {/* التعرف */}
                             <SectionLabel label="التعرف" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/RecognitionPage"
-                                icon={<SearchOutlined />} label="التعرف على شخص"
-                                isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/recognition/results"
-                                icon={<CheckCircleOutlined />} label="سجل التعرف"
-                                badge={recEvents.length}
-                                isDark={isDark} collapsed={collapsed} />
-
-                            {/* الكاميرات */}
-                            <SectionLabel label="الكاميرات" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/cameras"
-                                icon={<VideoCameraOutlined />} label="إدارة الكاميرات"
-                                isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/RecognitionPage" icon={<SearchOutlined />} label="التعرف على شخص" isDark={isDark} collapsed={collapsed} />
                             <NavItem
-                                icon={<ThunderboltOutlined />} label="المراقبة المباشرة"
-                                isDark={isDark} collapsed={collapsed}
+                                to="/recognition/results"
+                                icon={<CheckCircleOutlined />}
+                                label="سجل التعرف"
+                                badge={recEvents.length}
+                                isDark={isDark}
+                                collapsed={collapsed}
+                            />
+
+                            <SectionLabel label="الكاميرات" isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/cameras" icon={<VideoCameraOutlined />} label="إدارة الكاميرات" isDark={isDark} collapsed={collapsed} />
+                            <NavItem
+                                icon={<ThunderboltOutlined />}
+                                label="المراقبة المباشرة"
+                                isDark={isDark}
+                                collapsed={collapsed}
                                 onClick={() => {
                                     window.open('/cameras/live', '_blank', 'noopener');
                                     setTimeout(() => window.open('/cameras/results', '_blank', 'noopener'), 300);
-                                }} />
+                                }}
+                            />
 
-                            {/* إدارة المستخدمين */}
                             {(isAdmin || isManager) && (
                                 <>
                                     <SectionLabel label="المستخدمون" isDark={isDark} collapsed={collapsed} />
-                                    <NavItem to="/Users"
-                                        icon={<UserSwitchOutlined />} label="إدارة المستخدمين"
-                                        isDark={isDark} collapsed={collapsed} />
+                                    <NavItem to="/Users" icon={<UserSwitchOutlined />} label="إدارة المستخدمين" isDark={isDark} collapsed={collapsed} />
                                 </>
                             )}
 
-                            {/* إعدادات النظام */}
                             {isAdmin && (
                                 <>
                                     <SectionLabel label="النظام" isDark={isDark} collapsed={collapsed} />
                                     <NavItem
-                                        icon={<SettingOutlined />} label="إعدادات النظام"
-                                        isDark={isDark} collapsed={collapsed}
-                                        onClick={openSettings} />
+                                        icon={<SettingOutlined />}
+                                        label="إعدادات النظام"
+                                        isDark={isDark}
+                                        collapsed={collapsed}
+                                        onClick={openSettings}
+                                    />
                                 </>
                             )}
                         </div>
 
-                        {/* Bottom */}
-                        <div style={{
-                            padding: '8px', borderTop: `1px solid ${T.border}`,
-                            display: 'flex', flexDirection: 'column', gap: 6,
-                        }}>
+                        <div
+                            style={{
+                                padding: '8px',
+                                borderTop: `1px solid ${T.border}`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 6,
+                                flexShrink: 0,
+                            }}
+                        >
                             <ChatWidget currentUserId={currentUserId} />
-                            <Button danger block icon={<LogoutOutlined />}
+                            <Button
+                                danger
+                                block
+                                icon={<LogoutOutlined />}
                                 onClick={handleLogout}
-                                style={{ borderRadius: 10, height: 36 }}>
+                                style={{ borderRadius: 10, height: 36 }}
+                            >
                                 {!collapsed && 'خروج'}
                             </Button>
                         </div>
                     </Sider>
 
-                    {/* ── CONTENT ─────────────────────── */}
-                    <Content style={{
-                        marginRight: arlang ? (collapsed ? 64 : 240) : 0,
-                        marginLeft: arlang ? 0 : (collapsed ? 64 : 240),
-                        minHeight: 'calc(100vh - 62px)',
-                        background: T.bg,
-                        transition: 'margin .22s',
-                    }}>
-                        <div style={{ minHeight: '90%',overflowY:'auto' }}>
+                    <Content
+                        style={{
+                            marginRight: arlang ? (collapsed ? 64 : 240) : 0,
+                            marginLeft: arlang ? 0 : (collapsed ? 64 : 240),
+                            height: `calc(100vh - ${HEADER_HEIGHT}px)`,
+                            background: T.bg,
+                            transition: 'margin .22s',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            minWidth: 0,
+                        }}
+                    >
+                        <div
+                            ref={contentScrollRef}
+                            style={{
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: 'auto',
+                                overflowX: 'hidden',
+                                padding: 0,
+                            }}
+                        >
                             <Outlet />
                         </div>
-                        <Footer style={{
-                            textAlign: 'center', background: T.footer,
-                            borderTop: `1px solid ${T.border}`,
-                            color: T.muted, fontSize: 12, padding: '10px 24px',
-                        }}>
+
+                        <Footer
+                            style={{
+                                flexShrink: 0,
+                                height: FOOTER_HEIGHT,
+                                textAlign: 'center',
+                                background: T.footer,
+                                borderTop: `1px solid ${T.border}`,
+                                color: T.muted,
+                                fontSize: 12,
+                                padding: '10px 24px',
+                            }}
+                        >
                             نظام التعرف الأمني الذكي © {new Date().getFullYear()}
                         </Footer>
                     </Content>

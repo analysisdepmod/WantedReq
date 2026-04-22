@@ -1,8 +1,5 @@
 ﻿// ════════════════════════════════════════════════════════
 //  WantedRec.Server/Services/CameraService.cs
-//
-//  سجّل في Program.cs:
-//      builder.Services.AddScoped<ICameraService, CameraService>();
 // ════════════════════════════════════════════════════════
 
 namespace WantedRec.Server.Services
@@ -18,20 +15,17 @@ namespace WantedRec.Server.Services
             _logger = logger;
         }
 
-        // ── GetAllAsync ───────────────────────────────────────
         public async Task<List<CameraDto>> GetAllAsync(
-       bool? isActive = null,
-       string? userId = null,
-       int? userDeviceId = null,
-       CancellationToken ct = default)
+            bool? isActive = null,
+            string? userId = null,
+            int? userDeviceId = null,
+            CancellationToken ct = default)
         {
             var query = _context.Cameras.AsNoTracking().AsQueryable();
 
             if (isActive.HasValue)
                 query = query.Where(c => c.IsActive == isActive.Value);
 
-            // الكامرات الشبكية تظهر للجميع
-            // الكامرات المحلية فقط للجهاز الحالي التابع للمستخدم الحالي
             query = query.Where(c =>
                 !string.IsNullOrWhiteSpace(c.StreamUrl) ||
                 (
@@ -62,7 +56,6 @@ namespace WantedRec.Server.Services
                 .ToListAsync(ct);
         }
 
-        // ── GetByIdAsync ──────────────────────────────────────
         public async Task<CameraDetailDto?> GetByIdAsync(
             int id,
             CancellationToken ct = default)
@@ -73,11 +66,12 @@ namespace WantedRec.Server.Services
             return c is null ? null : ToDetail(c);
         }
 
-        // ── CreateAsync ───────────────────────────────────────
         public async Task<CameraDetailDto> CreateAsync(
             CameraUpsertDto dto,
             CancellationToken ct = default)
         {
+            await EnsureLocalSlotAvailableAsync(dto, null, ct);
+
             var camera = new Camera();
             Apply(camera, dto);
             _context.Cameras.Add(camera);
@@ -92,7 +86,6 @@ namespace WantedRec.Server.Services
             return ToDetail(camera);
         }
 
-        // ── UpdateAsync ───────────────────────────────────────
         public async Task<CameraDetailDto?> UpdateAsync(
             int id,
             CameraUpsertDto dto,
@@ -101,13 +94,14 @@ namespace WantedRec.Server.Services
             var camera = await _context.Cameras.FindAsync([id], ct);
             if (camera is null) return null;
 
+            await EnsureLocalSlotAvailableAsync(dto, id, ct);
+
             Apply(camera, dto);
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("Camera updated → Id:{Id}", id);
             return ToDetail(camera);
         }
 
-        // ── DeleteAsync ───────────────────────────────────────
         public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
         {
             var camera = await _context.Cameras.FindAsync([id], ct);
@@ -128,7 +122,6 @@ namespace WantedRec.Server.Services
             return true;
         }
 
-        // ── SetActiveAsync ────────────────────────────────────
         public async Task<bool> SetActiveAsync(int id, bool isActive, CancellationToken ct = default)
         {
             var camera = await _context.Cameras.FindAsync([id], ct);
@@ -140,7 +133,6 @@ namespace WantedRec.Server.Services
             return true;
         }
 
-        // ── GetStatsAsync ─────────────────────────────────────
         public async Task<CameraStatsDto> GetStatsAsync(int id, CancellationToken ct = default)
         {
             var today = DateTime.Today;
@@ -164,9 +156,31 @@ namespace WantedRec.Server.Services
             };
         }
 
-        // ══════════════════════════════════════════════════════
-        //  Helpers
-        // ══════════════════════════════════════════════════════
+        private async Task EnsureLocalSlotAvailableAsync(
+            CameraUpsertDto dto,
+            int? excludeCameraId,
+            CancellationToken ct)
+        {
+            var isLocal = string.IsNullOrWhiteSpace(dto.StreamUrl);
+            if (!isLocal)
+                return;
+
+            if (dto.UserDeviceId is null)
+                throw new InvalidOperationException("يجب تحديد الجهاز الحالي قبل ربط كاميرا محلية.");
+
+            if (dto.LocalDeviceIndex is null || dto.LocalDeviceIndex < 0)
+                throw new InvalidOperationException("يجب اختيار كاميرا محلية صحيحة من الجهاز الحالي.");
+
+            var duplicateExists = await _context.Cameras.AsNoTracking().AnyAsync(c =>
+                c.StreamUrl == null &&
+                c.UserDeviceId == dto.UserDeviceId &&
+                c.LocalDeviceIndex == dto.LocalDeviceIndex &&
+                (!excludeCameraId.HasValue || c.CameraId != excludeCameraId.Value),
+                ct);
+
+            if (duplicateExists)
+                throw new InvalidOperationException($"الكاميرا المحلية رقم {dto.LocalDeviceIndex} مرتبطة مسبقًا بهذا الجهاز.");
+        }
 
         private static void Apply(Camera target, CameraUpsertDto src)
         {

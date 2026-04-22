@@ -95,8 +95,6 @@ namespace WantedRec.Server.Controllers
         {
             try
             {
-                var userId = GetCurrentUserId();
-
                 var query = _context.Recognitions
                     .AsNoTracking()
                     .Include(r => r.Person)
@@ -104,22 +102,9 @@ namespace WantedRec.Server.Controllers
                         .ThenInclude(c => c!.UserDevice)
                     .AsQueryable();
 
-                // الكامرات الشبكية تظهر للجميع
-                // الكامرات المحلية تظهر فقط للجهاز الحالي التابع للمستخدم الحالي
-                query = query.Where(r =>
-                    r.Camera != null &&
-                    (
-                        !string.IsNullOrWhiteSpace(r.Camera.StreamUrl) ||
-                        (
-                            string.IsNullOrWhiteSpace(r.Camera.StreamUrl) &&
-                            userDeviceId.HasValue &&
-                            !string.IsNullOrWhiteSpace(userId) &&
-                            r.Camera.UserDeviceId == userDeviceId.Value &&
-                            r.Camera.UserDevice != null &&
-                            r.Camera.UserDevice.UserId == userId
-                        )
-                    )
-                );
+                // سجل التعرف عام لكل الأجهزة المصرح لها بالدخول إلى النظام.
+                // نبقي فقط فلترة الواجهة مثل cameraId / personId / status / التاريخ.
+                query = query.Where(r => r.Camera != null);
 
                 if (cameraId.HasValue)
                     query = query.Where(r => r.CameraId == cameraId.Value);
@@ -222,7 +207,7 @@ namespace WantedRec.Server.Controllers
             CancellationToken cancellationToken = default)
         {
             if (file is null || file.Length == 0)
-                
+
                 return BadRequest(ApiResponse<RecognitionResultDto>.Fail("الصورة مطلوبة"));
 
             try
@@ -385,7 +370,7 @@ namespace WantedRec.Server.Controllers
             {
                 var today = DateTime.Today;
                 return await _context.Recognitions
-                    .Where(r =>  r.PersonId !=null && r.IsMatch && r.RecognitionDateTime.Date == today)
+                    .Where(r => r.PersonId != null && r.IsMatch && r.RecognitionDateTime.Date == today)
                     .ToListAsync(ct);
             }) ?? [];
 

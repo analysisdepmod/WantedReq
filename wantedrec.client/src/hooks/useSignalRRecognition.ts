@@ -1,7 +1,7 @@
 ﻿// ════════════════════════════════════════════════════════
 //  src/hooks/useSignalRRecognition.ts
 //  هوك الاستقبال الفوري لأحداث التعرف عبر SignalR
-//  نسخة تدعم الفلترة حسب الجهاز الحالي
+//  نسخة عامة — جميع الأجهزة تستقبل أحداث التعرف
 // ════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
@@ -9,7 +9,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { getRecognitionConnection, ensureStart } from '../signalr/signalrConnections';
 
-const STORAGE_KEY = 'current_device_id';
 
 export interface LiveRecognitionEvent {
     recognitionId?: number;
@@ -39,13 +38,6 @@ function playSound(isSuspect: boolean) {
     audio.play().catch(() => { });
 }
 
-function getCurrentDeviceId(): number | null {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = Number(raw);
-    return Number.isNaN(parsed) ? null : parsed;
-}
 
 export function useSignalRRecognition() {
     const qc = useQueryClient();
@@ -54,22 +46,7 @@ export function useSignalRRecognition() {
 
     const connection = getRecognitionConnection();
 
-    const shouldAcceptEvent = useCallback((evt: LiveRecognitionEvent) => {
-        const currentDeviceId = getCurrentDeviceId();
-
-        // إذا الحدث محلي ومربوط بجهاز، فلازم يطابق الجهاز الحالي
-        if (evt.userDeviceId !== undefined && evt.userDeviceId !== null) {
-            return currentDeviceId !== null && evt.userDeviceId === currentDeviceId;
-        }
-
-        // إذا ماكو userDeviceId نعتبره عام
-        // مثل كامرات IP / RTSP / URL أو أحداث قديمة غير مفلترة
-        return true;
-    }, []);
-
     const addEvent = useCallback((evt: LiveRecognitionEvent) => {
-        if (!shouldAcceptEvent(evt)) return;
-
         setEvents(prev => [evt, ...prev].slice(0, 200));
 
         // إبطال cache لإجبار التحديث
@@ -89,7 +66,7 @@ export function useSignalRRecognition() {
         });
 
         playSound(evt.isSuspect);
-    }, [qc, shouldAcceptEvent]);
+    }, [qc]);
 
     useEffect(() => {
         let mounted = true;
