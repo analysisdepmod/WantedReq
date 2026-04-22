@@ -5,8 +5,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     Row, Col, Button, Typography, Space, Switch, Spin,
-    Tooltip, Tag, Modal, Form, Input, Select,
-    InputNumber, Popconfirm, Divider, AutoComplete,
+    Tooltip, Modal, Form, Input, Select,
+    InputNumber, Popconfirm, Divider, AutoComplete, Alert,
 } from 'antd';
 import {
     VideoCameraOutlined, PlusOutlined, EditOutlined,
@@ -14,6 +14,7 @@ import {
     WifiOutlined, HomeOutlined, GlobalOutlined,
     EnvironmentOutlined, SettingOutlined, WarningOutlined,
     CheckCircleOutlined, StopOutlined, ClockCircleOutlined,
+    LinkOutlined,
 } from '@ant-design/icons';
 import { useCameras, type CameraUpsertPayload } from '../../hooks/useCameras';
 import { snapshotUrl } from '../../api/camerasApi';
@@ -21,8 +22,9 @@ import type { CameraDto } from '../../types/camera.types';
 import { detectCameraKind } from '../../types/camera.types';
 
 const { Title, Text } = Typography;
+const STORAGE_KEY = 'current_device_id';
 
-// ── Palette ───────────────────────────────────────────────
+// ── Palette ─────────────────────────────────────────────
 const C = {
     bg: 'var(--app-page-bg)',
     white: 'var(--app-surface)',
@@ -98,7 +100,15 @@ const CSS = `
 
 type AvailabilityValue = boolean | null | undefined;
 
-// ── Helpers ───────────────────────────────────────────────
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
+// ── Helpers ─────────────────────────────────────────────
 function probeImage(url: string, timeoutMs = 4000): Promise<boolean> {
     return new Promise(resolve => {
         const img = new Image();
@@ -180,7 +190,7 @@ function getCameraVisualState(cam: CameraDto, availability: AvailabilityValue) {
     };
 }
 
-// ── KindBadge ─────────────────────────────────────────────
+// ── KindBadge ───────────────────────────────────────────
 function KindBadge({ cam }: { cam: CameraDto }) {
     const kind = detectCameraKind(cam);
     const map: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -209,7 +219,7 @@ function KindBadge({ cam }: { cam: CameraDto }) {
     );
 }
 
-// ── CameraCard ────────────────────────────────────────────
+// ── CameraCard ──────────────────────────────────────────
 function CameraCard({
     cam,
     idx,
@@ -239,7 +249,6 @@ function CameraCard({
 
     return (
         <div className={cardClass} style={{ animation: `slideUp .35s ease ${idx * 0.04}s both` }}>
-            {/* Status area */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
@@ -298,7 +307,6 @@ function CameraCard({
                 </div>
             </div>
 
-            {/* Kind + location */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <KindBadge cam={cam} />
 
@@ -329,7 +337,6 @@ function CameraCard({
                 )}
             </div>
 
-            {/* Meta */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {cam.area && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -373,7 +380,6 @@ function CameraCard({
 
             <Divider style={{ margin: '4px 0' }} />
 
-            {/* Actions */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <Switch
                     checked={cam.isActive}
@@ -409,11 +415,12 @@ function CameraCard({
     );
 }
 
-// ── CameraFormModal ───────────────────────────────────────
+// ── CameraFormModal ─────────────────────────────────────
 function CameraFormModal({
     open,
     editingId,
     cameras,
+    currentDeviceId,
     onSave,
     onClose,
     isSaving,
@@ -421,6 +428,7 @@ function CameraFormModal({
     open: boolean;
     editingId: number | null;
     cameras: CameraDto[];
+    currentDeviceId: number | null;
     onSave: (dto: CameraUpsertPayload) => void;
     onClose: () => void;
     isSaving: boolean;
@@ -481,6 +489,7 @@ function CameraFormModal({
                 isActive: true,
                 isIndoor: true,
                 localDeviceIndex: '0',
+                ipAddress: 'local',
             });
         }
     }, [open, editing, form]);
@@ -496,8 +505,10 @@ function CameraFormModal({
 
         const dto: CameraUpsertPayload = {
             ...vals,
+            ipAddress: vals.ipAddress || 'local',
             streamUrl: streamUrl || undefined,
             localDeviceIndex: streamUrl ? undefined : parsedIndex,
+            userDeviceId: streamUrl ? undefined : (currentDeviceId ?? undefined),
         };
 
         onSave(dto);
@@ -519,6 +530,16 @@ function CameraFormModal({
             styles={{ body: { direction: 'rtl', paddingTop: 16 } }}
         >
             <Form form={form} layout="vertical" onFinish={onFinish}>
+                {isLocalMode && !currentDeviceId && (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="لا يوجد جهاز حالي مختار"
+                        description="إذا كانت هذه كاميرا محلية، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي، ثم ارجع للإضافة."
+                    />
+                )}
+
                 <Row gutter={16}>
                     <Col span={12}>
                         <Form.Item name="name" label="اسم الكاميرا" rules={[{ required: true, message: 'اسم الكاميرا مطلوب' }]}>
@@ -657,8 +678,10 @@ function CameraFormModal({
     );
 }
 
-// ── CamerasManagePage ─────────────────────────────────────
+// ── CamerasManagePage ───────────────────────────────────
 export default function CamerasManagePage() {
+    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
+
     const {
         cameras,
         isLoading,
@@ -675,18 +698,33 @@ export default function CamerasManagePage() {
         toggleCamera,
         togglingId,
         ctx,
-    } = useCameras();
+    } = useCameras(undefined, currentDeviceId);
 
     const [openingMonitor, setOpeningMonitor] = useState(false);
     const [localDevices, setLocalDevices] = useState<MediaDeviceInfo[]>([]);
     const [availabilityMap, setAvailabilityMap] = useState<Record<number, AvailabilityValue>>({});
 
-    // ── Read local camera devices ────────────────────────
+    useEffect(() => {
+        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
+
+        window.addEventListener('storage', syncDevice);
+        window.addEventListener('focus', syncDevice);
+
+        return () => {
+            window.removeEventListener('storage', syncDevice);
+            window.removeEventListener('focus', syncDevice);
+        };
+    }, []);
+
+    // ── Read local camera devices ───────────────────────
     useEffect(() => {
         let disposed = false;
 
         const loadDevices = async () => {
             try {
+                const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+                tmp.getTracks().forEach(t => t.stop());
+
                 const all = await navigator.mediaDevices.enumerateDevices();
                 if (!disposed) {
                     setLocalDevices(all.filter(d => d.kind === 'videoinput'));
@@ -713,7 +751,7 @@ export default function CamerasManagePage() {
         };
     }, []);
 
-    // ── Availability check ───────────────────────────────
+    // ── Availability check ──────────────────────────────
     useEffect(() => {
         let disposed = false;
 
@@ -802,7 +840,6 @@ export default function CamerasManagePage() {
             {ctx}
 
             <div style={{ padding: 24, direction: 'rtl', background: C.bg, minHeight: '100vh' }}>
-                {/* ── Header ──────────────────────────────────── */}
                 <div style={{
                     background: C.white,
                     border: `1px solid ${C.border}`,
@@ -837,6 +874,15 @@ export default function CamerasManagePage() {
                             <Text style={{ color: C.muted, fontSize: 12 }}>
                                 إضافة وتعديل وإدارة شبكة الكاميرات الأمنية
                             </Text>
+
+                            <div style={{ marginTop: 6 }}>
+                                <Text style={{ fontSize: 12, color: currentDeviceId ? C.blue : C.red }}>
+                                    <LinkOutlined style={{ marginLeft: 4 }} />
+                                    الجهاز الحالي:
+                                    {' '}
+                                    {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
+                                </Text>
+                            </div>
                         </div>
                     </Space>
 
@@ -904,7 +950,16 @@ export default function CamerasManagePage() {
                     </Space>
                 </div>
 
-                {/* ── Camera Grid ─────────────────────────────── */}
+                {!currentDeviceId && (
+                    <Alert
+                        style={{ marginBottom: 16 }}
+                        type="warning"
+                        showIcon
+                        message="لم يتم اختيار الجهاز الحالي بعد"
+                        description="افتح صفحة المراقبة أولًا وحدد هل هذا جهاز جديد أو قديم، وبعدها ستظهر الكامرات المحلية الخاصة بهذا الجهاز."
+                    />
+                )}
+
                 {isLoading ? (
                     <div style={{ textAlign: 'center', padding: 100 }}>
                         <Spin size="large" />
@@ -952,11 +1007,11 @@ export default function CamerasManagePage() {
                 )}
             </div>
 
-            {/* ── Modal ─────────────────────────────────────── */}
             <CameraFormModal
                 open={modalOpen}
                 editingId={editingId}
                 cameras={cameras}
+                currentDeviceId={currentDeviceId}
                 onSave={save}
                 onClose={closeModal}
                 isSaving={isSaving}

@@ -439,7 +439,12 @@ namespace WantedRec.Server.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("UserDeviceId")
+                        .HasColumnType("int");
+
                     b.HasKey("CameraId");
+
+                    b.HasIndex("UserDeviceId");
 
                     b.ToTable("Cameras", (string)null);
                 });
@@ -1014,7 +1019,7 @@ namespace WantedRec.Server.Migrations
                     b.Property<int?>("FrameNumber")
                         .HasColumnType("int");
 
-                    b.Property<bool?>("IsMatch")
+                    b.Property<bool>("IsMatch")
                         .HasColumnType("bit");
 
                     b.Property<double?>("Latitude")
@@ -1267,6 +1272,36 @@ namespace WantedRec.Server.Migrations
                     b.ToView("Units", (string)null);
                 });
 
+            modelBuilder.Entity("WantedRec.Server.Models.UserDevice", b =>
+                {
+                    b.Property<int>("UserDeviceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserDeviceId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("UserDeviceId");
+
+                    b.ToTable("UserDevices");
+                });
+
             modelBuilder.Entity("WantedRec.Server.ApplicationRole", b =>
                 {
                     b.HasBaseType("Microsoft.AspNetCore.Identity.IdentityRole");
@@ -1349,6 +1384,16 @@ namespace WantedRec.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Ranks");
+                });
+
+            modelBuilder.Entity("WantedRec.Server.Models.Camera", b =>
+                {
+                    b.HasOne("WantedRec.Server.Models.UserDevice", "UserDevice")
+                        .WithMany("Cameras")
+                        .HasForeignKey("UserDeviceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UserDevice");
                 });
 
             modelBuilder.Entity("WantedRec.Server.Models.ChatGroup", b =>
@@ -1629,6 +1674,11 @@ namespace WantedRec.Server.Migrations
             modelBuilder.Entity("WantedRec.Server.Models.PersonFaceImage", b =>
                 {
                     b.Navigation("Recognitions");
+                });
+
+            modelBuilder.Entity("WantedRec.Server.Models.UserDevice", b =>
+                {
+                    b.Navigation("Cameras");
                 });
 #pragma warning restore 612, 618
         }

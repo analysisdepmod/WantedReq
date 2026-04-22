@@ -5,6 +5,7 @@
         public long RecognitionId { get; set; }
 
         public int? PersonId { get; set; }
+        public bool IsMatch { get; set; } = false;
         public Person? Person { get; set; }// NULL إذا Unknown
         public long? FaceImageId { get; set; }
         public PersonFaceImage? FaceImage { get; set; }// صورة الوجه المقتطع
@@ -14,7 +15,7 @@
         public ApplicationUser? ReviewedByUser { get; set; }
 
         public double? RecognitionScore { get; set; }
-        public bool? IsMatch { get; set; }
+   
         public double? ThresholdUsed { get; set; }
         public RecognitionStatus RecognitionStatus { get; set; }  // Pending / Confirmed / Rejected...
 

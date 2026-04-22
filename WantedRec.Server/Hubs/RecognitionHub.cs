@@ -30,6 +30,8 @@ namespace WantedRec.Server.Hubs
         public string? PrimaryImageBase64 { get; set; }
         public string? SnapshotPath { get; set; }
         public DateTime RecognitionDateTime { get; set; }
+        public int? UserDeviceId { get; set; }
+        public bool IsLocalCamera { get; set; }
     }
 
     // ── Interface للـ notifier ────────────────────────────

@@ -50,6 +50,7 @@ namespace WantedRec.Server.DTOs
 
         public DateTime? InstallationDate { get; set; }
         public DateTime? LastMaintenanceDate { get; set; }
+        public int? UserDeviceId { get; set; }
 
         [MaxLength(1000)]
         public string? Notes { get; set; }

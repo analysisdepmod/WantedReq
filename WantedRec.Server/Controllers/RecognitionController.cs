@@ -1,8 +1,5 @@
-﻿ 
-using Microsoft.Extensions.Caching.Memory;
-using System.Net;
-using WantedRec.Server.DTOs.PythonAIDto;
- 
+﻿
+
 
 namespace WantedRec.Server.Controllers
 {
@@ -16,7 +13,7 @@ namespace WantedRec.Server.Controllers
         private readonly ILogger<RecognitionController> _logger;
         private readonly IWebHostEnvironment _env;
         private readonly IMemoryCache _cache;
-        private readonly IRecognitionNotifier _notifier;    
+        private readonly IRecognitionNotifier _notifier;
 
         private const string FaceImagesCacheKey = "PersonFaceImages_cache";
         private const string RecognitionsCacheKey = "RecognitionsCacheKey_cache";
@@ -40,10 +37,50 @@ namespace WantedRec.Server.Controllers
             _notifier = notifier;
         }
 
+        private string? GetCurrentUserId()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+        }
+
+        private async Task<Camera?> ResolveAllowedCameraAsync(
+            int? cameraId,
+            int? userDeviceId,
+            string? userId,
+            CancellationToken ct)
+        {
+            if (!cameraId.HasValue)
+                return null;
+
+            var camera = await _context.Cameras
+                .AsNoTracking()
+                .Include(c => c.UserDevice)
+                .FirstOrDefaultAsync(c => c.CameraId == cameraId.Value, ct);
+
+            if (camera is null)
+                return null;
+
+            // كامرة شبكية → عامة
+            if (!string.IsNullOrWhiteSpace(camera.StreamUrl))
+                return camera;
+
+            // كامرة محلية → لازم تطابق الجهاز الحالي والمستخدم
+            if (!userDeviceId.HasValue || string.IsNullOrWhiteSpace(userId))
+                return null;
+
+            if (camera.UserDeviceId != userDeviceId.Value)
+                return null;
+
+            if (camera.UserDevice?.UserId != userId)
+                return null;
+
+            return camera;
+        }
+
         // ══════════════════════════════════════════════════════
         //  GET /api/recognition — سجل التعرف مع فلاتر
         // ══════════════════════════════════════════════════════
-        [HttpGet]
+        [HttpGet("recognitions")]
         [ProducesResponseType(typeof(ApiResponse<List<RecognitionDto>>), (int)HttpStatusCode.OK)]
         public async Task<ActionResult<ApiResponse<List<RecognitionDto>>>> GetAsync(
             [FromQuery] int? cameraId = null,
@@ -53,23 +90,52 @@ namespace WantedRec.Server.Controllers
             [FromQuery] bool? isMatch = null,
             [FromQuery] int? personId = null,
             [FromQuery] int pageSize = 200,
+            [FromHeader(Name = "X-User-Device-Id")] int? userDeviceId = null,
             CancellationToken ct = default)
         {
             try
             {
+                var userId = GetCurrentUserId();
+
                 var query = _context.Recognitions
                     .AsNoTracking()
                     .Include(r => r.Person)
                     .Include(r => r.Camera)
+                        .ThenInclude(c => c!.UserDevice)
                     .AsQueryable();
 
-                if (cameraId.HasValue) query = query.Where(r => r.CameraId == cameraId);
-                if (personId.HasValue) query = query.Where(r => r.PersonId == personId);
-                if (recognitionStatus.HasValue) query = query.Where(r => (int)r.RecognitionStatus == recognitionStatus);
-                if (isMatch.HasValue) query = query.Where(r => r.IsMatch == isMatch);
+                // الكامرات الشبكية تظهر للجميع
+                // الكامرات المحلية تظهر فقط للجهاز الحالي التابع للمستخدم الحالي
+                query = query.Where(r =>
+                    r.Camera != null &&
+                    (
+                        !string.IsNullOrWhiteSpace(r.Camera.StreamUrl) ||
+                        (
+                            string.IsNullOrWhiteSpace(r.Camera.StreamUrl) &&
+                            userDeviceId.HasValue &&
+                            !string.IsNullOrWhiteSpace(userId) &&
+                            r.Camera.UserDeviceId == userDeviceId.Value &&
+                            r.Camera.UserDevice != null &&
+                            r.Camera.UserDevice.UserId == userId
+                        )
+                    )
+                );
+
+                if (cameraId.HasValue)
+                    query = query.Where(r => r.CameraId == cameraId.Value);
+
+                if (personId.HasValue)
+                    query = query.Where(r => r.PersonId == personId.Value);
+
+                if (recognitionStatus.HasValue)
+                    query = query.Where(r => (int)r.RecognitionStatus == recognitionStatus.Value);
+
+                if (isMatch.HasValue)
+                    query = query.Where(r => r.IsMatch == isMatch.Value);
 
                 if (!string.IsNullOrWhiteSpace(fromDate) && DateTime.TryParse(fromDate, out var dtFrom))
                     query = query.Where(r => r.RecognitionDateTime >= dtFrom);
+
                 if (!string.IsNullOrWhiteSpace(toDate) && DateTime.TryParse(toDate, out var dtTo))
                     query = query.Where(r => r.RecognitionDateTime < dtTo.AddDays(1));
 
@@ -100,15 +166,20 @@ namespace WantedRec.Server.Controllers
                         LocationDescription = r.LocationDescription,
                         CreatedAt = r.CreatedAt,
                         ReviewNotes = r.ReviewNotes,
+                        UserDeviceId = r.Camera != null ? r.Camera.UserDeviceId : null,
                     })
                     .ToListAsync(ct);
 
-                return Ok(ApiResponse<List<RecognitionDto>>.Success(items, $"تم جلب {items.Count} سجل"));
+                return Ok(ApiResponse<List<RecognitionDto>>.Success(
+                    items,
+                    $"تم جلب {items.Count} سجل"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching recognitions");
-                return StatusCode(500, ApiResponse<List<RecognitionDto>>.Fail(ex.Message));
+                return StatusCode(
+                    (int)HttpStatusCode.InternalServerError,
+                    ApiResponse<List<RecognitionDto>>.Fail(ex.Message));
             }
         }
 
@@ -129,7 +200,9 @@ namespace WantedRec.Server.Controllers
             recognition.IsMatch = dto.IsMatch;
             recognition.RecognitionStatus = dto.RecognitionStatus;
             recognition.ReviewNotes = dto.ReviewNotes;
-            if (dto.ThresholdUsed.HasValue) recognition.ThresholdUsed = dto.ThresholdUsed.Value;
+
+            if (dto.ThresholdUsed.HasValue)
+                recognition.ThresholdUsed = dto.ThresholdUsed.Value;
 
             await _context.SaveChangesAsync(ct);
             _cache.Remove(RecognitionsCacheKey);
@@ -145,19 +218,38 @@ namespace WantedRec.Server.Controllers
         public async Task<ActionResult<ApiResponse<RecognitionResultDto>>> IdentifyAsync(
             IFormFile file,
             [FromHeader(Name = "X-Camera-Id")] int? cameraId,
+            [FromHeader(Name = "X-User-Device-Id")] int? userDeviceId,
             CancellationToken cancellationToken = default)
         {
             if (file is null || file.Length == 0)
+                
                 return BadRequest(ApiResponse<RecognitionResultDto>.Fail("الصورة مطلوبة"));
 
             try
             {
+                var userId = GetCurrentUserId();
+
+                var allowedCamera = await ResolveAllowedCameraAsync(cameraId, userDeviceId, userId, cancellationToken);
+
+                // إذا cameraId مرسل لكنه غير مسموح للجهاز الحالي، نمنع الاستخدام
+                if (cameraId.HasValue && allowedCamera is null)
+                {
+                    return Forbid();
+                }
+
                 var pyResult = await _faceAiService.RecognizeAsync(file, cancellationToken);
 
                 if (!pyResult.Faces.Any())
+                {
                     return Ok(ApiResponse<RecognitionResultDto>.Success(
-                        new RecognitionResultDto { Faces = [], TotalFaces = 0, KnownFaces = 0 },
+                        new RecognitionResultDto
+                        {
+                            Faces = [],
+                            TotalFaces = 0,
+                            KnownFaces = 0,
+                        },
                         "لم يتم كشف أي وجه"));
+                }
 
                 var dbFaceImages = await GetCachedFaceImagesAsync(cancellationToken);
                 var lastRecognitionsToday = await GetCachedRecognitionsAsync(cancellationToken);
@@ -166,14 +258,8 @@ namespace WantedRec.Server.Controllers
                 var recognitionsToSave = new List<Recognition>();
                 string? snapshotPath = null;
 
-                // ── جلب اسم الكاميرا للإشعار ─────────────────
-                string? cameraName = null;
-                if (cameraId.HasValue)
-                    cameraName = await _context.Cameras
-                        .AsNoTracking()
-                        .Where(c => c.CameraId == cameraId)
-                        .Select(c => c.Name)
-                        .FirstOrDefaultAsync(cancellationToken);
+                var cameraName = allowedCamera?.Name;
+                var resolvedCameraId = allowedCamera?.CameraId;
 
                 foreach (var face in pyResult.Faces)
                 {
@@ -202,21 +288,21 @@ namespace WantedRec.Server.Controllers
                                 .Where(fi => fi.PersonId == personId && fi.IsActive && fi.IsPrimary && fi.FaceProcessedImage != null)
                                 .FirstOrDefaultAsync(cancellationToken)
                                 ?? await _context.PersonFaceImages
-                                .Where(fi => fi.PersonId == personId && fi.IsActive && fi.FaceProcessedImage != null)
-                                .FirstOrDefaultAsync(cancellationToken);
+                                    .Where(fi => fi.PersonId == personId && fi.IsActive && fi.FaceProcessedImage != null)
+                                    .FirstOrDefaultAsync(cancellationToken);
 
                             if (primaryImage?.FaceProcessedImage is not null)
                                 faceDto.PrimaryImageBase64 = Convert.ToBase64String(primaryImage.FaceProcessedImage);
 
-                            if (ShouldSaveRecognition(personId, cameraId, lastRecognitionsToday))
+                            if (ShouldSaveRecognition(personId, resolvedCameraId, lastRecognitionsToday))
                             {
-                                var imageName = $"{faceDto.Name}-{cameraId}-{DateTime.Now:HH-mm-ss}";
+                                var imageName = $"{faceDto.Name}-{resolvedCameraId}-{DateTime.Now:HH-mm-ss}";
                                 snapshotPath ??= await SaveSnapshotAsync(file, imageName, cancellationToken);
 
                                 var newRec = new Recognition
                                 {
                                     PersonId = personId,
-                                    CameraId = cameraId,
+                                    CameraId = resolvedCameraId,
                                     RecognitionScore = match.Value.Score,
                                     FaceImageId = primaryImage?.FaceImageId,
                                     SnapshotPath = snapshotPath,
@@ -234,18 +320,19 @@ namespace WantedRec.Server.Controllers
                                 recognitionsToSave.Add(newRec);
                                 lastRecognitionsToday.Add(newRec);
 
-                                // ── إرسال SignalR فوراً ──────────────
                                 _ = _notifier.NotifyAsync(new RecognitionSignalDto
                                 {
                                     PersonId = personId,
                                     PersonFullName = faceDto.Name,
-                                    CameraId = cameraId,
+                                    CameraId = resolvedCameraId,
                                     CameraName = cameraName,
                                     Score = match.Value.Score,
                                     IsSuspect = match.Value.Person.Suspect is not null,
                                     PrimaryImageBase64 = faceDto.PrimaryImageBase64,
                                     SnapshotPath = snapshotPath,
-                                    RecognitionDateTime = DateTime.Now,
+                                    RecognitionDateTime = DateTime.UtcNow,
+                                    UserDeviceId = allowedCamera?.UserDeviceId,
+                                    IsLocalCamera = allowedCamera is not null && string.IsNullOrWhiteSpace(allowedCamera.StreamUrl),
                                 }, cancellationToken);
                             }
                         }
@@ -275,18 +362,21 @@ namespace WantedRec.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during face identification");
-                return StatusCode(500, ApiResponse<RecognitionResultDto>.Fail(ex.Message));
+                return StatusCode(
+                    (int)HttpStatusCode.InternalServerError,
+                    ApiResponse<RecognitionResultDto>.Fail(ex.Message));
             }
         }
 
         // ══════════════════════════════════════════════════════
         //  Private helpers
         // ══════════════════════════════════════════════════════
-
         private async Task<List<PersonFaceImage>> GetCachedFaceImagesAsync(CancellationToken ct) =>
             await _cache.GetOrCreateAsync(FaceImagesCacheKey, async _ =>
-                await _context.PersonFaceImages.AsNoTracking()
-                    .Include(fi => fi.Person).ThenInclude(p => p!.Suspect)
+                await _context.PersonFaceImages
+                    .AsNoTracking()
+                    .Include(fi => fi.Person)
+                        .ThenInclude(p => p!.Suspect)
                     .Where(fi => fi.IsActive && fi.EmbeddingVector != null && fi.Person != null && fi.Person.IsActive)
                     .ToListAsync(ct)) ?? [];
 
@@ -295,14 +385,20 @@ namespace WantedRec.Server.Controllers
             {
                 var today = DateTime.Today;
                 return await _context.Recognitions
-                    .Where(r => r.PersonId != null && r.IsMatch == true && r.RecognitionDateTime.Date == today)
+                    .Where(r =>  r.PersonId !=null && r.IsMatch && r.RecognitionDateTime.Date == today)
                     .ToListAsync(ct);
             }) ?? [];
 
         private static bool ShouldSaveRecognition(int personId, int? cameraId, List<Recognition> list)
         {
-            if (!list.Any(r => r.PersonId == personId)) return true;
-            var last = list.Where(r => r.PersonId == personId).OrderByDescending(r => r.RecognitionDateTime).First();
+            if (!list.Any(r => r.PersonId == personId))
+                return true;
+
+            var last = list
+                .Where(r => r.PersonId == personId)
+                .OrderByDescending(r => r.RecognitionDateTime)
+                .First();
+
             return last.CameraId != cameraId;
         }
 
@@ -311,26 +407,42 @@ namespace WantedRec.Server.Controllers
             var dateFolder = DateTime.Today.ToString("yyyy-MM-dd");
             var folder = Path.Combine(_env.WebRootPath, "snapshots", dateFolder);
             Directory.CreateDirectory(folder);
+
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+            if (string.IsNullOrEmpty(ext))
+                ext = ".jpg";
+
             var safeName = string.Concat(imageName.Split(Path.GetInvalidFileNameChars()));
             var fullPath = Path.Combine(folder, $"{safeName}{ext}");
+
             await using var stream = System.IO.File.Create(fullPath);
             await file.CopyToAsync(stream, ct);
+
             return $"snapshots/{dateFolder}/{safeName}{ext}";
         }
 
         private (float Score, Person? Person)? FindBestMatch(List<float> query, List<PersonFaceImage> db)
         {
             var qn = L2Normalize(query.ToArray());
-            double best = -1; PersonFaceImage? bestMatch = null;
+            double best = -1;
+            PersonFaceImage? bestMatch = null;
+
             foreach (var fi in db)
             {
-                if (fi.EmbeddingVector is null) continue;
+                if (fi.EmbeddingVector is null)
+                    continue;
+
                 var s = CosineSimilarity(qn, L2Normalize(fi.EmbeddingVector));
-                if (s > best) { best = s; bestMatch = fi; }
+                if (s > best)
+                {
+                    best = s;
+                    bestMatch = fi;
+                }
             }
-            if (bestMatch is null || best < Threshold) return null;
+
+            if (bestMatch is null || best < Threshold)
+                return null;
+
             return (MathF.Round((float)best, 3), bestMatch.Person);
         }
 
@@ -342,9 +454,13 @@ namespace WantedRec.Server.Controllers
 
         private static double CosineSimilarity(float[] a, float[] b)
         {
-            if (a.Length != b.Length) return -1;
+            if (a.Length != b.Length)
+                return -1;
+
             double d = 0;
-            for (int i = 0; i < a.Length; i++) d += a[i] * b[i];
+            for (int i = 0; i < a.Length; i++)
+                d += a[i] * b[i];
+
             return d;
         }
     }

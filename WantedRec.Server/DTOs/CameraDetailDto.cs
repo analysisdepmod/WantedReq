@@ -21,5 +21,6 @@ namespace WantedRec.Server.DTOs
         public int RecognitionsToday { get; set; }
         public int TotalRecognitions { get; set; }
         public DateTime? LastRecognitionAt { get; set; }
+        public int? UserDeviceId { get; set; }
     }
 }

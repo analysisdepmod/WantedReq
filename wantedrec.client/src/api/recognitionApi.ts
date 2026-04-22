@@ -1,12 +1,28 @@
-﻿
-
-import axiosInstance from '../api';
+﻿import axiosInstance from '../api';
 import type { ApiResponse } from '../types/person.types';
 import type {
     LiveRecognitionResultDto,
     RecognitionDto,
     RecognitionReviewDto,
 } from '../types/camera.types';
+
+const STORAGE_KEY = 'current_device_id';
+
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
+const getDeviceHeaders = () => {
+    const currentDeviceId = getCurrentDeviceId();
+
+    return currentDeviceId
+        ? { 'X-User-Device-Id': String(currentDeviceId) }
+        : undefined;
+};
 
 /**
  * إرسال صورة للتعرف — POST /api/recognition/identify
@@ -26,14 +42,16 @@ export const identifyFace = async (
             headers: {
                 'Content-Type': 'multipart/form-data',
                 ...(cameraId !== undefined && { 'X-Camera-Id': String(cameraId) }),
+                ...getDeviceHeaders(),
             },
         },
     );
+
     return res.data.data;
 };
 
 /**
- * جلب سجل التعرف — GET /api/recognitions
+ * جلب سجل التعرف — GET /api/recognition/recognitions
  */
 export const getRecognitions = async (params?: {
     cameraId?: number;
@@ -45,8 +63,12 @@ export const getRecognitions = async (params?: {
 }): Promise<RecognitionDto[]> => {
     const res = await axiosInstance.get<ApiResponse<RecognitionDto[]>>(
         '/recognition/recognitions',
-        { params },
+        {
+            params,
+            headers: getDeviceHeaders(),
+        },
     );
+
     return res.data.data;
 };
 
@@ -57,5 +79,11 @@ export const reviewRecognition = async (
     id: number,
     dto: RecognitionReviewDto,
 ): Promise<void> => {
-    await axiosInstance.put(`/recognitions/${id}/review`, dto);
+    await axiosInstance.put(
+        `/recognitions/${id}/review`,
+        dto,
+        {
+            headers: getDeviceHeaders(),
+        },
+    );
 };

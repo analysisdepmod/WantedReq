@@ -1,17 +1,4 @@
-﻿// ════════════════════════════════════════════════════════
-//  WantedRec.Server/Controllers/CameraController.cs
-//
-//  Endpoints:
-//    GET    /api/cameras
-//    GET    /api/cameras/{id}
-//    GET    /api/cameras/{id}/stats
-//    GET    /api/cameras/{id}/snapshot   ← للكاميرات RTSP
-//    POST   /api/cameras
-//    PUT    /api/cameras/{id}
-//    PUT    /api/cameras/{id}/activate
-//    PUT    /api/cameras/{id}/deactivate
-//    DELETE /api/cameras/{id}
-// ════════════════════════════════════════════════════════
+﻿ 
 
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -39,11 +26,13 @@ namespace WantedRec.Server.Controllers
         // ── GET /api/cameras ──────────────────────────────────
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<List<CameraDto>>), (int)HttpStatusCode.OK)]
-        public async Task<ActionResult<ApiResponse<List<CameraDto>>>> GetAllAsync(
-            [FromQuery] bool? isActive = null,
-            CancellationToken ct = default)
+        public async Task<ActionResult<ApiResponse<List<CameraDto>>>> GetAllAsync(  [FromQuery] bool? isActive = null,  [FromHeader(Name = "X-User-Device-Id")] int? userDeviceId = null,  CancellationToken ct = default)
         {
-            var cameras = await _cameraService.GetAllAsync(isActive, ct);
+            var userId =
+                User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+
+            var cameras = await _cameraService.GetAllAsync(isActive, userId, userDeviceId, ct);
             return Ok(ApiResponse<List<CameraDto>>.Success(cameras, $"تم جلب {cameras.Count} كاميرا"));
         }
 
@@ -145,18 +134,22 @@ namespace WantedRec.Server.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<CameraDetailDto>.Fail(
-                    string.Join(" | ", ModelState.Values
-                        .SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
+                  string.Join(" | ", ModelState.Values
+                      .SelectMany(v => v.Errors)
+                      .Select(e => e.ErrorMessage))));
             try
             {
                 var camera = await _cameraService.CreateAsync(dto, ct);
-                return CreatedAtAction(nameof(GetByIdAsync), new { id = camera.CameraId },
-                    ApiResponse<CameraDetailDto>.Success(camera, "تمت إضافة الكاميرا بنجاح"));
+                return Ok( ApiResponse<CameraDetailDto>.Success(camera, "تمت إضافة الكاميرا بنجاح"));
+
+              
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating camera");
-                return StatusCode(500, ApiResponse<CameraDetailDto>.Fail(ex.Message));
+                return StatusCode(
+                 (int)HttpStatusCode.InternalServerError,
+                 ApiResponse<CameraDetailDto>.Fail("فشل إنشاء الكاميرا: " + ex.Message));
             }
         }
 

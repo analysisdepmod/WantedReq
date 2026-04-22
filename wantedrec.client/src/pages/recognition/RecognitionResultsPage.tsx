@@ -1,10 +1,4 @@
-// ════════════════════════════════════════════════════════
-//  src/pages/recognition/RecognitionResultsPage.tsx
-//  Route: /recognition/results
-//  سجل التعرف الكامل + SignalR badge
-// ════════════════════════════════════════════════════════
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -15,7 +9,7 @@ import type { ColumnsType } from 'antd/es/table';
 import {
     CheckCircleOutlined, EyeOutlined, VideoCameraOutlined, UserOutlined,
     ReloadOutlined, FilterOutlined, WarningOutlined, BarChartOutlined,
-    ThunderboltOutlined,
+    ThunderboltOutlined, LinkOutlined, MonitorOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useRecognitions } from '../../hooks/useRecognitions';
@@ -27,30 +21,65 @@ import { BASIC_URL } from '../../api';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+const STORAGE_KEY = 'current_device_id';
+
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
 
 const scoreColor = (s?: number) =>
     !s ? '#94a3b8' : s >= 0.8 ? '#16a34a' : s >= 0.6 ? '#d97706' : '#dc2626';
 
 const buildImgUrl = (p: string) => `${BASIC_URL.replace(/\/api\/?$/, '')}/${p}`;
 
-function StatCard({ label, value, color, icon, bg }: {
-    label: string; value: string | number;
-    color: string; icon: React.ReactNode; bg: string;
+function StatCard({
+    label,
+    value,
+    color,
+    icon,
+    bg,
+}: {
+    label: string;
+    value: string | number;
+    color: string;
+    icon: React.ReactNode;
+    bg: string;
 }) {
     return (
-        <div style={{
-            background: bg, border: '1px solid var(--app-border)', borderRadius: 12,
-            padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-            boxShadow: '0 1px 4px rgba(15,23,42,.04)',
-        }}>
-            <div style={{
-                width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                background: `${color}18`, border: `1px solid ${color}33`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color, fontSize: 18,
-            }}>
+        <div
+            style={{
+                background: bg,
+                border: '1px solid var(--app-border)',
+                borderRadius: 12,
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                boxShadow: '0 1px 4px rgba(15,23,42,.04)',
+            }}
+        >
+            <div
+                style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    background: `${color}18`,
+                    border: `1px solid ${color}33`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color,
+                    fontSize: 18,
+                }}
+            >
                 {icon}
             </div>
+
             <div>
                 <div style={{ fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
                 <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 2 }}>{label}</div>
@@ -61,37 +90,72 @@ function StatCard({ label, value, color, icon, bg }: {
 
 export default function RecognitionResultsPage() {
     const navigate = useNavigate();
+    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
 
-    const { recognitions, isLoading, isError, isFetching, refetch, filters, updateFilter, clearFilters, stats }
-        = useRecognitions({ isMatch: true });
+    const {
+        recognitions,
+        isLoading,
+        isError,
+        isFetching,
+        refetch,
+        filters,
+        updateFilter,
+        clearFilters,
+        stats,
+    } = useRecognitions({ isMatch: true });
 
     const { events: liveEvents, isConnected } = useSignalRRecognition();
 
     const { data: cameras = [] } = useQuery<CameraDto[]>({
-        queryKey: ['cameras'],
+        queryKey: ['cameras', currentDeviceId],
         queryFn: () => getCameras(),
     });
 
+    useEffect(() => {
+        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
+
+        window.addEventListener('storage', syncDevice);
+        window.addEventListener('focus', syncDevice);
+
+        return () => {
+            window.removeEventListener('storage', syncDevice);
+            window.removeEventListener('focus', syncDevice);
+        };
+    }, []);
+
     const columns: ColumnsType<RecognitionDto> = [
         {
-            title: 'لقطة', key: 'snapshot', width: 72,
-            render: (_, r) => r.snapshotPath ? (
-                <Image src={buildImgUrl(r.snapshotPath)}
-                    style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }}
-                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-                    preview={{ mask: <EyeOutlined /> }} />
-            ) : (
-                <div style={{
-                    width: 50, height: 50, borderRadius: 8,
-                    background: 'var(--app-surface-2)', border: '1px solid var(--app-border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <UserOutlined style={{ color: '#94a3b8', fontSize: 18 }} />
-                </div>
-            ),
+            title: 'لقطة',
+            key: 'snapshot',
+            width: 72,
+            render: (_, r) =>
+                r.snapshotPath ? (
+                    <Image
+                        src={buildImgUrl(r.snapshotPath)}
+                        style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }}
+                        fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                        preview={{ mask: <EyeOutlined /> }}
+                    />
+                ) : (
+                    <div
+                        style={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 8,
+                            background: 'var(--app-surface-2)',
+                            border: '1px solid var(--app-border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <UserOutlined style={{ color: '#94a3b8', fontSize: 18 }} />
+                    </div>
+                ),
         },
         {
-            title: 'الشخص', key: 'person',
+            title: 'الشخص',
+            key: 'person',
             render: (_, r) => (
                 <div>
                     <Text strong style={{ fontSize: 13 }}>{r.personFullName ?? '—'}</Text>
@@ -105,7 +169,9 @@ export default function RecognitionResultsPage() {
             ),
         },
         {
-            title: 'نسبة التطابق', key: 'score', width: 130,
+            title: 'نسبة التطابق',
+            key: 'score',
+            width: 130,
             sorter: (a, b) => (a.recognitionScore ?? 0) - (b.recognitionScore ?? 0),
             render: (_, r) => (
                 <div>
@@ -113,15 +179,21 @@ export default function RecognitionResultsPage() {
                         {r.recognitionScore ? `${Math.round(r.recognitionScore * 100)}%` : '—'}
                     </Text>
                     {r.recognitionScore !== undefined && (
-                        <Progress percent={Math.round(r.recognitionScore * 100)}
+                        <Progress
+                            percent={Math.round(r.recognitionScore * 100)}
                             strokeColor={scoreColor(r.recognitionScore)}
-                            size="small" showInfo={false} style={{ margin: '3px 0 0' }} />
+                            size="small"
+                            showInfo={false}
+                            style={{ margin: '3px 0 0' }}
+                        />
                     )}
                 </div>
             ),
         },
         {
-            title: 'الحالة', key: 'status', width: 130,
+            title: 'الحالة',
+            key: 'status',
+            width: 130,
             filters: [0, 1, 2, 3].map(v => ({ text: RecognitionStatusLabel[v], value: v })),
             onFilter: (val, r) => r.recognitionStatus === (val as number),
             render: (_, r) => (
@@ -131,7 +203,9 @@ export default function RecognitionResultsPage() {
             ),
         },
         {
-            title: 'التوقيت', key: 'time', width: 130,
+            title: 'التوقيت',
+            key: 'time',
+            width: 130,
             sorter: (a, b) => new Date(a.recognitionDateTime).getTime() - new Date(b.recognitionDateTime).getTime(),
             defaultSortOrder: 'descend',
             render: (_, r) => (
@@ -146,69 +220,148 @@ export default function RecognitionResultsPage() {
             ),
         },
         {
-            title: '', key: 'action', width: 90,
-            render: (_, r) => r.personId ? (
-                <Tooltip title="سجل هذا الشخص">
-                    <Button size="small" type="primary" icon={<EyeOutlined />}
-                        onClick={e => { e.stopPropagation(); navigate(`/recognition/person/${r.personId}`); }}
-                        style={{ borderRadius: 7, height: 28, fontSize: 11 }}>
-                        التفاصيل
-                    </Button>
-                </Tooltip>
-            ) : null,
+            title: '',
+            key: 'action',
+            width: 90,
+            render: (_, r) =>
+                r.personId ? (
+                    <Tooltip title="سجل هذا الشخص">
+                        <Button
+                            size="small"
+                            type="primary"
+                            icon={<EyeOutlined />}
+                            onClick={e => {
+                                e.stopPropagation();
+                                navigate(`/recognition/person/${r.personId}`);
+                            }}
+                            style={{ borderRadius: 7, height: 28, fontSize: 11 }}
+                        >
+                            التفاصيل
+                        </Button>
+                    </Tooltip>
+                ) : null,
         },
     ];
 
     return (
-        <div style={{ padding: '20px 24px', direction: 'rtl', background: 'var(--app-page-bg)', minHeight: '100vh' }}>
+        <div
+            style={{
+                padding: '20px 24px',
+                direction: 'rtl',
+                background: 'var(--app-page-bg)',
+                minHeight: '100vh',
+            }}
+        >
+            {!currentDeviceId && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 14, borderRadius: 10 }}
+                    message="لم يتم اختيار الجهاز الحالي"
+                    description={
+                        <Space direction="vertical" size={8}>
+                            <Text>
+                                إذا كنت تريد السجل الخاص بالتعرفات المحلية لهذا الجهاز، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي.
+                            </Text>
+                            <Button
+                                size="small"
+                                type="primary"
+                                icon={<MonitorOutlined />}
+                                onClick={() => navigate('/cameras/monitor')}
+                                style={{ width: 'fit-content' }}
+                            >
+                                فتح صفحة اختيار الجهاز
+                            </Button>
+                        </Space>
+                    }
+                />
+            )}
 
             {/* Header */}
-            <div style={{
-                background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 16,
-                padding: '16px 22px', marginBottom: 18,
-                boxShadow: 'var(--app-shadow)',
-                display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', flexWrap: 'wrap', gap: 14,
-            }}>
+            <div
+                style={{
+                    background: 'var(--app-surface)',
+                    border: '1px solid var(--app-border)',
+                    borderRadius: 16,
+                    padding: '16px 22px',
+                    marginBottom: 18,
+                    boxShadow: 'var(--app-shadow)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 14,
+                }}
+            >
                 <Space size={12} align="center">
-                    <div style={{
-                        width: 44, height: 44, borderRadius: 11,
-                        background: 'linear-gradient(135deg,var(--app-hero-start),var(--app-hero-end))',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(22,163,74,.3)',
-                    }}>
+                    <div
+                        style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 11,
+                            background: 'linear-gradient(135deg,var(--app-hero-start),var(--app-hero-end))',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 4px 12px rgba(22,163,74,.3)',
+                        }}
+                    >
                         <CheckCircleOutlined style={{ fontSize: 22, color: '#fff' }} />
                     </div>
+
                     <div>
                         <Title level={4} style={{ margin: 0 }}>سجل التعرف على الوجوه</Title>
-                        <Space size={10}>
-                            <Text type="secondary" style={{ fontSize: 12 }}>جميع عمليات التعرف الناجحة</Text>
+
+                        <Space size={10} wrap>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                جميع عمليات التعرف الناجحة
+                            </Text>
+
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                <LinkOutlined style={{ marginLeft: 4 }} />
+                                الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
+                            </Text>
+
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{
-                                    width: 7, height: 7, borderRadius: '50%', display: 'inline-block',
-                                    background: isConnected ? '#22c55e' : '#ef4444',
-                                }} />
+                                <span
+                                    style={{
+                                        width: 7,
+                                        height: 7,
+                                        borderRadius: '50%',
+                                        display: 'inline-block',
+                                        background: isConnected ? '#22c55e' : '#ef4444',
+                                    }}
+                                />
                                 <Text style={{ fontSize: 11, color: isConnected ? '#16a34a' : '#dc2626' }}>
                                     SignalR {isConnected ? 'متصل' : 'منقطع'}
                                 </Text>
+
                                 {liveEvents.length > 0 && (
-                                    <Badge count={liveEvents.length}
+                                    <Badge
+                                        count={liveEvents.length}
                                         style={{ background: '#16a34a', cursor: 'pointer' }}
-                                        onClick={() => navigate('/cameras/results')} />
+                                        onClick={() => navigate('/cameras/results')}
+                                    />
                                 )}
                             </div>
                         </Space>
                     </div>
                 </Space>
+
                 <Space>
-                    <Button icon={<ThunderboltOutlined />}
+                    <Button
+                        icon={<ThunderboltOutlined />}
                         onClick={() => navigate('/cameras/results')}
-                        style={{ borderRadius: 9, height: 36 }}>
+                        style={{ borderRadius: 9, height: 36 }}
+                    >
                         المباشر
                     </Button>
-                    <Button icon={<ReloadOutlined spin={isFetching} />}
+
+                    <Button
+                        icon={<ReloadOutlined spin={isFetching} />}
                         onClick={() => refetch()}
-                        style={{ borderRadius: 9, height: 36 }}>
+                        style={{ borderRadius: 9, height: 36 }}
+                    >
                         تحديث
                     </Button>
                 </Space>
@@ -217,10 +370,34 @@ export default function RecognitionResultsPage() {
             {/* Stats */}
             <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                 {[
-                    { label: 'إجمالي التعرفات', value: recognitions.length, color: '#2563eb', bg: '#eff6ff', icon: <BarChartOutlined /> },
-                    { label: 'مؤكدة', value: stats.confirmed, color: '#16a34a', bg: '#f0fdf4', icon: <CheckCircleOutlined /> },
-                    { label: 'قيد المراجعة', value: stats.pending, color: '#d97706', bg: '#fefce8', icon: <WarningOutlined /> },
-                    { label: 'متوسط الدقة', value: `${Math.round(stats.avgScore * 100)}%`, color: '#7c3aed', bg: '#faf5ff', icon: <EyeOutlined /> },
+                    {
+                        label: 'إجمالي التعرفات',
+                        value: recognitions.length,
+                        color: '#2563eb',
+                        bg: '#eff6ff',
+                        icon: <BarChartOutlined />,
+                    },
+                    {
+                        label: 'مؤكدة',
+                        value: stats.confirmed,
+                        color: '#16a34a',
+                        bg: '#f0fdf4',
+                        icon: <CheckCircleOutlined />,
+                    },
+                    {
+                        label: 'قيد المراجعة',
+                        value: stats.pending,
+                        color: '#d97706',
+                        bg: '#fefce8',
+                        icon: <WarningOutlined />,
+                    },
+                    {
+                        label: 'متوسط الدقة',
+                        value: `${Math.round(stats.avgScore * 100)}%`,
+                        color: '#7c3aed',
+                        bg: '#faf5ff',
+                        icon: <EyeOutlined />,
+                    },
                 ].map(s => (
                     <Col key={s.label} xs={12} sm={6}>
                         <StatCard {...s} />
@@ -229,48 +406,80 @@ export default function RecognitionResultsPage() {
             </Row>
 
             {/* Filters */}
-            <div style={{
-                background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 12,
-                padding: '12px 18px', marginBottom: 14,
-                display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
-            }}>
+            <div
+                style={{
+                    background: 'var(--app-surface)',
+                    border: '1px solid var(--app-border)',
+                    borderRadius: 12,
+                    padding: '12px 18px',
+                    marginBottom: 14,
+                    display: 'flex',
+                    gap: 10,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                }}
+            >
                 <FilterOutlined style={{ color: 'var(--app-muted)' }} />
-                <Select placeholder="جميع الكاميرات" allowClear style={{ width: 180 }}
+
+                <Select
+                    placeholder="جميع الكاميرات"
+                    allowClear
+                    style={{ width: 180 }}
                     onChange={v => updateFilter({ cameraId: v })}
-                    options={cameras.map(c => ({ value: c.cameraId, label: c.name }))} />
-                <Select placeholder="جميع الحالات" allowClear style={{ width: 160 }}
+                    options={cameras.map(c => ({ value: c.cameraId, label: c.name }))}
+                />
+
+                <Select
+                    placeholder="جميع الحالات"
+                    allowClear
+                    style={{ width: 160 }}
                     onChange={v => updateFilter({ status: v })}
-                    options={[0, 1, 2, 3].map(v => ({ value: v, label: RecognitionStatusLabel[v] }))} />
+                    options={[0, 1, 2, 3].map(v => ({ value: v, label: RecognitionStatusLabel[v] }))}
+                />
+
                 <RangePicker
                     onChange={(_, ds) => {
                         const [from, to] = ds;
                         updateFilter({ dateRange: from && to ? [from, to] : undefined });
                     }}
-                    placeholder={['من تاريخ', 'إلى تاريخ']} style={{ borderRadius: 8 }}
+                    placeholder={['من تاريخ', 'إلى تاريخ']}
+                    style={{ borderRadius: 8 }}
                 />
+
                 {(filters.cameraId || filters.status !== undefined || filters.dateRange) && (
-                    <Button size="small" onClick={clearFilters} style={{ borderRadius: 7 }}>مسح</Button>
+                    <Button size="small" onClick={clearFilters} style={{ borderRadius: 7 }}>
+                        مسح
+                    </Button>
                 )}
             </div>
 
             {isError && (
-                <Alert message="فشل تحميل السجل" type="error" showIcon
-                    style={{ marginBottom: 14, borderRadius: 10 }} />
+                <Alert
+                    message="فشل تحميل السجل"
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 14, borderRadius: 10 }}
+                />
             )}
 
             {/* Table */}
-            <div style={{
-                background: 'var(--app-surface)', border: '1px solid var(--app-border)',
-                borderRadius: 14, overflow: 'hidden',
-                boxShadow: 'var(--app-shadow)',
-            }}>
+            <div
+                style={{
+                    background: 'var(--app-surface)',
+                    border: '1px solid var(--app-border)',
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    boxShadow: 'var(--app-shadow)',
+                }}
+            >
                 <Table<RecognitionDto>
                     columns={columns}
                     dataSource={recognitions}
                     rowKey="recognitionId"
                     loading={isLoading}
                     pagination={{
-                        pageSize: 20, showSizeChanger: true,
+                        pageSize: 20,
+                        showSizeChanger: true,
                         pageSizeOptions: ['10', '20', '50', '100'],
                         showTotal: total => <Text type="secondary">{total} نتيجة</Text>,
                     }}

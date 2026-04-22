@@ -1,37 +1,62 @@
 // ═══════════════════════════════════════════════════════
 //  src/hooks/useRecognitions.ts
 //  هوك سجل التعرف — جماعي وفردي
+//  نسخة تدعم الجهاز الحالي
 // ═══════════════════════════════════════════════════════
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { getRecognitions, reviewRecognition } from '../api/recognitionApi';
 import type { RecognitionDto, RecognitionReviewDto } from '../types/camera.types';
 import { RecognitionStatus } from '../types/camera.types';
 
+const STORAGE_KEY = 'current_device_id';
+
+const getCurrentDeviceId = (): number | null => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
 export interface RecognitionFilters {
-    cameraId?:    number;
-    personId?:    number;
-    status?:      number;
-    dateRange?:   [string, string];
-    isMatch?:     boolean;
+    cameraId?: number;
+    personId?: number;
+    status?: number;
+    dateRange?: [string, string];
+    isMatch?: boolean;
 }
 
 export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh = 20_000) {
     const qc = useQueryClient();
     const [msgApi, ctx] = message.useMessage();
     const [filters, setFilters] = useState<RecognitionFilters>(defaultFilters ?? {});
+    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
+
+    useEffect(() => {
+        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
+
+        window.addEventListener('storage', syncDevice);
+        window.addEventListener('focus', syncDevice);
+
+        return () => {
+            window.removeEventListener('storage', syncDevice);
+            window.removeEventListener('focus', syncDevice);
+        };
+    }, []);
 
     const query = useQuery({
-        queryKey: ['recognitions', filters],
-        queryFn: () => getRecognitions({
-            cameraId:          filters.cameraId,
-            personId:          filters.personId,
-            recognitionStatus: filters.status,
-            fromDate:          filters.dateRange?.[0],
-            toDate:            filters.dateRange?.[1],
-            isMatch:           filters.isMatch ?? true,
-        }),
+        queryKey: ['recognitions', filters, currentDeviceId],
+        queryFn: () =>
+            getRecognitions({
+                cameraId: filters.cameraId,
+                personId: filters.personId,
+                recognitionStatus: filters.status,
+                fromDate: filters.dateRange?.[0],
+                toDate: filters.dateRange?.[1],
+                isMatch: filters.isMatch ?? true,
+            }),
         refetchInterval: autoRefresh,
     });
 
@@ -48,21 +73,32 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
     const recognitions = query.data ?? [];
 
     const stats = useMemo(() => {
-        const confirmed  = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Confirmed).length;
-        const pending    = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Pending).length;
-        const rejected   = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Rejected).length;
-        const suspects   = recognitions.filter(r => r.personId).length;
-        const avgScore   = recognitions.length
+        const confirmed = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Confirmed).length;
+        const pending = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Pending).length;
+        const rejected = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Rejected).length;
+        const suspects = recognitions.filter(r => r.personId).length;
+        const avgScore = recognitions.length
             ? recognitions.reduce((s, r) => s + (r.recognitionScore ?? 0), 0) / recognitions.length
             : 0;
-        const cameras    = [...new Set(recognitions.map(r => r.cameraName).filter(Boolean))];
-        const lastSeen   = recognitions[0]?.recognitionDateTime;
+        const cameras = [...new Set(recognitions.map(r => r.cameraName).filter(Boolean))];
+        const lastSeen = recognitions[0]?.recognitionDateTime;
 
-        // مسار حركة الشخص (لو فيه personId ثابت)
-        const movementPath: RecognitionDto[] = [...recognitions]
-            .sort((a, b) => new Date(a.recognitionDateTime).getTime() - new Date(b.recognitionDateTime).getTime());
+        const movementPath: RecognitionDto[] = [...recognitions].sort(
+            (a, b) =>
+                new Date(a.recognitionDateTime).getTime() -
+                new Date(b.recognitionDateTime).getTime()
+        );
 
-        return { confirmed, pending, rejected, suspects, avgScore, cameras, lastSeen, movementPath };
+        return {
+            confirmed,
+            pending,
+            rejected,
+            suspects,
+            avgScore,
+            cameras,
+            lastSeen,
+            movementPath,
+        };
     }, [recognitions]);
 
     const updateFilter = (patch: Partial<RecognitionFilters>) =>
@@ -72,17 +108,19 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
 
     return {
         recognitions,
-        isLoading:   query.isLoading,
-        isError:     query.isError,
-        isFetching:  query.isFetching,
-        refetch:     query.refetch,
+        isLoading: query.isLoading,
+        isError: query.isError,
+        isFetching: query.isFetching,
+        refetch: query.refetch,
         filters,
         updateFilter,
         clearFilters,
         stats,
+        currentDeviceId,
         review: (id: number, dto: RecognitionReviewDto) => reviewMutation.mutate({ id, dto }),
         isReviewing: reviewMutation.isPending,
-        ctx, msgApi,
+        ctx,
+        msgApi,
     };
 }
 
