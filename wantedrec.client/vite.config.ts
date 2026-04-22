@@ -1,56 +1,73 @@
 ﻿import { fileURLToPath, URL } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
-import plugin from '@vitejs/plugin-react';
-import fs from 'fs';
-import path from 'path';
-import child_process from 'child_process';
-import { VitePWA } from 'vite-plugin-pwa'; // ⬅️ أضف هذا
+import react from '@vitejs/plugin-react';
+import fs from 'node:fs';
+import path from 'node:path';
+import child_process from 'node:child_process';
+import type { ServerOptions } from 'node:https';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
 
-    const baseURL = env.VITE_BASE_URL;
+    const baseURL = env.VITE_BASE_URL || 'http://localhost:7067';
     const APPPORT = Number(env.VITE_APP_PORT || 5555);
     const certificateName = env.VITE_HTTPS_CERT_NAME || 'reactapp1.client';
+    const useHttps = env.VITE_USE_HTTPS === 'true';
 
     const baseFolder =
         env.APPDATA && env.APPDATA !== ''
-            ? `${env.APPDATA}/ASP.NET/https`
-            : `${process.env.HOME}/.aspnet/https`;
+            ? path.join(env.APPDATA, 'ASP.NET', 'https')
+            : path.join(process.env.HOME || '', '.aspnet', 'https');
 
     const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
     const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
 
-    if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
-        const result = child_process.spawnSync('dotnet', [
-            'dev-certs',
-            'https',
-            '--export-path',
-            certFilePath,
-            '--format',
-            'Pem',
-            '--no-password',
-        ], { stdio: 'inherit' });
+    let httpsConfig: ServerOptions | undefined = undefined;
 
-        if (result.status !== 0) {
-            throw new Error('Could not create HTTPS certificate.');
+    if (useHttps) {
+        if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
+            const result = child_process.spawnSync(
+                'dotnet',
+                [
+                    'dev-certs',
+                    'https',
+                    '--export-path',
+                    certFilePath,
+                    '--format',
+                    'Pem',
+                    '--no-password',
+                ],
+                { stdio: 'inherit' }
+            );
+
+            if (result.status !== 0) {
+                throw new Error('Could not create HTTPS certificate.');
+            }
         }
+
+        httpsConfig = {
+            key: fs.readFileSync(keyFilePath),
+            cert: fs.readFileSync(certFilePath),
+        };
     }
 
     const target = env.ASPNETCORE_HTTPS_PORT
-        ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}`
+        ? `http://localhost:${env.ASPNETCORE_HTTPS_PORT}`
         : env.ASPNETCORE_URLS
             ? env.ASPNETCORE_URLS.split(';')[0]
             : baseURL;
-
+    console.log('env.VITE_USE_HTTPS =', env.VITE_USE_HTTPS);
+    console.log('httpsConfig enabled =', !!httpsConfig);
     return {
         plugins: [
-            plugin(),
+            react(),
             VitePWA({
+                disable: mode !== 'production',
                 registerType: 'autoUpdate',
                 includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'robots.txt'],
                 workbox: {
-                    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // ⬅️ رفع الحد إلى 10 ميغابايت
+                    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
                 },
                 manifest: {
                     name: 'My React ASP.NET App',
@@ -64,34 +81,34 @@ export default defineConfig(({ mode }) => {
                         {
                             src: 'pwa-192x192.png',
                             sizes: '192x192',
-                            type: 'image/png'
+                            type: 'image/png',
                         },
                         {
                             src: 'pwa-512x512.png',
                             sizes: '512x512',
-                            type: 'image/png'
-                        }
-                    ]
-                }
-            })
+                            type: 'image/png',
+                        },
+                    ],
+                },
+            }),
         ],
         resolve: {
             alias: {
-                '@': fileURLToPath(new URL('./src', import.meta.url))
-            }
+                '@': fileURLToPath(new URL('./src', import.meta.url)),
+            },
         },
         server: {
+            host: true,
+            port: APPPORT,
+            strictPort: true,
+            https: httpsConfig,
             proxy: {
                 '^/api': {
                     target,
                     secure: false,
-                }
+                    changeOrigin: true,
+                },
             },
-            port: APPPORT,
-            https: {
-                key: fs.readFileSync(keyFilePath),
-                cert: fs.readFileSync(certFilePath),
-            }
-        }
+        },
     };
 });

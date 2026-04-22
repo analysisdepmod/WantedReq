@@ -1,9 +1,5 @@
 ﻿import {
-    Form, Input, Select, DatePicker, Switch,
-    Upload, Button, Card, Row, Col,
-    Typography, Space, Image, message,
-    Spin, Alert, Divider,
-    Tag,
+  Row, Col,  Tag
 } from 'antd';
 import FaceProcessedImage from './FaceProcessedImage';
 import { CameraOutlined } from '@mui/icons-material';

@@ -160,17 +160,27 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddScoped<IUser, UserService>();
 builder.Services.AddScoped<ITranslationService, TranslationService>();
+builder.Services.AddScoped<IRecognitionNotifier, RecognitionNotifier>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("SPNIPolicy",
+    options.AddPolicy("AllowPort5555", policy =>
+    {
+        policy
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
 
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
 
-      x => x.WithOrigins(["http://192.168.19.107:1011", "https://localhost:5555", "https://192.168.19.107:1001", "https://localhost:1001"])
+                return uri.Port == 5555;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials()
-           );
+            .AllowCredentials();
+    });
 });
 
 builder.Services.AddHttpContextAccessor(); //for get logged user
@@ -201,7 +211,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseCors("SPNIPolicy");
+app.UseCors("AllowPort5555");
 app.UseAuthentication();
 app.UseAuthorization();
 //app.MapIdentityApi<ApplicationUser>();
@@ -209,6 +219,7 @@ app.UseAuthorization();
 app.MapHub<NotificationHub>("/hubs/NotificationHub");
 app.MapHub<ChatHub>("/hubs/chathub");
 app.MapHub<PresenceHub>("/hubs/presencehub");
+app.MapHub<RecognitionHub>("/hubs/recognitionhub");
 app.MapControllers();
 
 

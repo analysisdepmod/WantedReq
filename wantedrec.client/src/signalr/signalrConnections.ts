@@ -1,50 +1,53 @@
-﻿import * as signalR from "@microsoft/signalr";
+﻿// ════════════════════════════════════════════════════════
+//  src/signalr/signalrConnections.ts
+//  محدَّث — أضاف RecognitionHub
+// ════════════════════════════════════════════════════════
+
+import * as signalR from "@microsoft/signalr";
 import { BASIC_URL1 } from "../api";
 
-// 🛠️ دالة لإنشاء أي اتصال
-const createHubConnection = (path: string): signalR.HubConnection => {
-    return new signalR.HubConnectionBuilder()
+const createHub = (path: string): signalR.HubConnection =>
+    new signalR.HubConnectionBuilder()
         .withUrl(`${BASIC_URL1}/hubs/${path}`, {
             accessTokenFactory: () => localStorage.getItem("token") || "",
         })
         .withAutomaticReconnect()
         .configureLogging(signalR.LogLevel.None)
         .build();
-};
 
-// 🔁 متغيرات يمكن إعادة تعيينها
-let chatConnection = createHubConnection("chathub");
-let notificationConnection = createHubConnection("notificationhub");
-let presenceConnection = createHubConnection("presencehub");
+// ── Connections ───────────────────────────────────────────
+let chatConnection = createHub("chathub");
+let notificationConnection = createHub("notificationhub");
+let presenceConnection = createHub("presencehub");
+let recognitionConnection = createHub("recognitionhub"); // ← جديد
 
-// ✅ دوال لإنشاء جديدة (تُستخدم بعد تسجيل الدخول)
-export const recreateChatConnection = () => (chatConnection = createHubConnection("chathub"));
-export const recreateNotificationConnection = () => (notificationConnection = createHubConnection("notificationhub"));
-export const recreatePresenceConnection = () => (presenceConnection = createHubConnection("presencehub"));
+// ── Recreate (بعد login) ──────────────────────────────────
+export const recreateChatConnection = () => (chatConnection = createHub("chathub"));
+export const recreateNotificationConnection = () => (notificationConnection = createHub("notificationhub"));
+export const recreatePresenceConnection = () => (presenceConnection = createHub("presencehub"));
+export const recreateRecognitionConnection = () => (recognitionConnection = createHub("recognitionhub"));
 
-// ✅ getter للاتصالات (لتفادي التصدير المباشر)
+// ── Getters ───────────────────────────────────────────────
 export const getChatConnection = () => chatConnection;
 export const getNotificationConnection = () => notificationConnection;
 export const getPresenceConnection = () => presenceConnection;
+export const getRecognitionConnection = () => recognitionConnection;
 
-// ✅ دالة تشغيل آمنة
-export const ensureStart = async (connection: signalR.HubConnection, name = "Hub") => {
-    if (connection.state === signalR.HubConnectionState.Connected) {
-        console.log(`✅ ${name} already connected`);
-        return;
-    }
+// ── ensureStart ───────────────────────────────────────────
+export const ensureStart = async (
+    connection: signalR.HubConnection,
+    name = "Hub",
+) => {
+    if (connection.state === signalR.HubConnectionState.Connected) return;
 
     if (
         connection.state === signalR.HubConnectionState.Connecting ||
         connection.state === signalR.HubConnectionState.Reconnecting
     ) {
-        console.log(`⏳ ${name} is ${connection.state}... waiting`);
         return new Promise<void>((resolve) => {
-            const interval = setInterval(() => {
+            const id = setInterval(() => {
                 if (connection.state === signalR.HubConnectionState.Connected) {
-                    clearInterval(interval);
-                    console.log(`✅ ${name} connected (after waiting)`);
-                    resolve();
+                    clearInterval(id); resolve();
                 }
             }, 300);
         });
@@ -54,6 +57,6 @@ export const ensureStart = async (connection: signalR.HubConnection, name = "Hub
         await connection.start();
         console.log(`🚀 ${name} started`);
     } catch (err) {
-        console.error(`❌ ${name} connection error:`, err);
+        console.error(`❌ ${name} error:`, err);
     }
 };

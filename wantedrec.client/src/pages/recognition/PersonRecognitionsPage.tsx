@@ -53,7 +53,7 @@ function MovementMap({ records }: { records: RecognitionDto[] }) {
     if (records.length < 2) return (
         <div style={{
             height: 200, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', background: '#f8fafc', borderRadius: 12,
+            justifyContent: 'center', background: 'var(--app-surface-2)', borderRadius: 12,
             border: '1px dashed #e4e9f2',
         }}>
             <Space direction="vertical" style={{ textAlign: 'center' }}>
@@ -88,21 +88,21 @@ function MovementMap({ records }: { records: RecognitionDto[] }) {
 
     return (
         <div style={{
-            background: 'linear-gradient(135deg,#f8fafc,#eff6ff)',
-            borderRadius: 14, border: '1px solid #e4e9f2',
+            background: 'linear-gradient(135deg,var(--app-surface-2),var(--app-soft-blue))',
+            borderRadius: 14, border: '1px solid var(--app-border)',
             overflow: 'hidden', position: 'relative',
         }}>
             {/* Legend */}
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid #e4e9f2',
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-border)',
                           display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AimOutlined style={{ color: '#2563eb' }} />
                 <Text strong style={{ fontSize: 13 }}>مسار حركة الهدف</Text>
                 <div style={{ marginRight: 'auto', display: 'flex', gap: 12 }}>
-                    <span style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--app-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ width: 12, height: 12, borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
                         نقطة رصد
                     </span>
-                    <span style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--app-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ width: 20, height: 2, background: '#2563eb', display: 'inline-block' }} />
                         مسار الحركة
                     </span>
@@ -200,7 +200,7 @@ function MovementTimeline({ records }: { records: RecognitionDto[] }) {
                     }
                 >
                     <div style={{
-                        background: '#fff', border: '1px solid #e4e9f2', borderRadius: 10,
+                        background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 10,
                         padding: '8px 12px', marginBottom: 4,
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -215,7 +215,7 @@ function MovementTimeline({ records }: { records: RecognitionDto[] }) {
                             </Text>
                         )}
                         {rec.locationDescription && (
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 2 }}>
                                 <EnvironmentOutlined style={{ marginLeft: 3 }} />
                                 {rec.locationDescription}
                             </div>
@@ -256,7 +256,7 @@ export default function PersonRecognitionsPage() {
             title: 'لقطة', key: 'snap', width: 70,
             render: (_, r) => r.snapshotPath
                 ? <Image src={buildUrl(r.snapshotPath)} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8 }} />
-                : <div style={{ width: 48, height: 48, borderRadius: 8, background: '#f1f5f9',
+                : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--app-surface-2)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <UserOutlined style={{ color: '#94a3b8' }} />
                   </div>,
@@ -323,11 +323,11 @@ export default function PersonRecognitionsPage() {
     return (
         <>
             <style>{CSS}</style>
-            <div style={{ padding: '20px 24px', direction: 'rtl', background: '#f4f6fb', minHeight: '100vh' }}>
+            <div style={{ padding: '20px 24px', direction: 'rtl', background: 'var(--app-page-bg)', minHeight: '100vh' }}>
 
                 {/* ── Header ──────────────────────────────── */}
                 <div style={{
-                    background: '#fff', border: '1px solid #e4e9f2', borderRadius: 18,
+                    background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 18,
                     padding: '16px 22px', marginBottom: 18,
                     boxShadow: '0 2px 8px rgba(15,23,42,.06)',
                 }}>
@@ -343,7 +343,7 @@ export default function PersonRecognitionsPage() {
                             <Avatar size={56}
                                     src={primaryImg ? `data:image/jpeg;base64,${primaryImg}` : undefined}
                                     icon={<UserOutlined />}
-                                    style={{ background: '#eff6ff', color: '#2563eb',
+                                    style={{ background: 'var(--app-soft-blue)', color: '#2563eb',
                                              border: '3px solid #bfdbfe', flexShrink: 0 }} />
 
                             <div>
@@ -375,7 +375,7 @@ export default function PersonRecognitionsPage() {
                                 {/* Cameras */}
                                 {stats.cameras.length > 0 && (
                                     <div style={{ marginTop: 8, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                                        <Text style={{ fontSize: 11, color: '#64748b' }}>رُصد في:</Text>
+                                        <Text style={{ fontSize: 11, color: 'var(--app-muted)' }}>رُصد في:</Text>
                                         {stats.cameras.map(c => (
                                             <Tag key={c} icon={<VideoCameraOutlined />} color="blue" style={{ fontSize: 10 }}>
                                                 {c}
@@ -405,7 +405,7 @@ export default function PersonRecognitionsPage() {
                     ].map(s => (
                         <Col key={s.label} xs={12} sm={6}>
                             <div style={{
-                                background: s.bg, border: '1px solid #e4e9f2', borderRadius: 12,
+                                background: s.bg, border: '1px solid var(--app-border)', borderRadius: 12,
                                 padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
                                 boxShadow: '0 1px 4px rgba(15,23,42,.04)',
                             }}>
@@ -419,7 +419,7 @@ export default function PersonRecognitionsPage() {
                                 </div>
                                 <div>
                                     <div style={{ fontSize: 20, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{s.label}</div>
+                                    <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 2 }}>{s.label}</div>
                                 </div>
                             </div>
                         </Col>
@@ -433,7 +433,7 @@ export default function PersonRecognitionsPage() {
                     <Col xs={24} lg={8}>
                         {/* Date Filter */}
                         <div style={{
-                            background: '#fff', border: '1px solid #e4e9f2', borderRadius: 14,
+                            background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 14,
                             padding: '12px 14px', marginBottom: 14,
                             boxShadow: '0 1px 4px rgba(15,23,42,.04)',
                         }}>
@@ -459,7 +459,7 @@ export default function PersonRecognitionsPage() {
 
                         {/* Movement Map */}
                         <div style={{
-                            background: '#fff', border: '1px solid #e4e9f2', borderRadius: 14,
+                            background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 14,
                             padding: '12px 14px', marginBottom: 14,
                             boxShadow: '0 1px 4px rgba(15,23,42,.04)',
                         }}>
@@ -472,7 +472,7 @@ export default function PersonRecognitionsPage() {
 
                         {/* Timeline */}
                         <div style={{
-                            background: '#fff', border: '1px solid #e4e9f2', borderRadius: 14,
+                            background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 14,
                             padding: '12px 14px', maxHeight: 400, overflowY: 'auto',
                             boxShadow: '0 1px 4px rgba(15,23,42,.04)',
                         }}>
@@ -487,7 +487,7 @@ export default function PersonRecognitionsPage() {
                     {/* ── Left: Records table ───────────────── */}
                     <Col xs={24} lg={16}>
                         <div style={{
-                            background: '#fff', border: '1px solid #e4e9f2',
+                            background: 'var(--app-surface)', border: '1px solid var(--app-border)',
                             borderRadius: 14, overflow: 'hidden',
                             boxShadow: '0 1px 4px rgba(15,23,42,.04)',
                         }}>

@@ -1,4 +1,4 @@
-﻿// ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 //  src/pages/cameras/CameraDetailPage.tsx  —  Route: /cameras/:id
 //  يُفتح في تاب جديد
 // ════════════════════════════════════════════════════════
@@ -20,7 +20,7 @@ import { getCameraById } from '../../api/camerasApi';
 import { identifyFace } from '../../api/recognitionApi';
 import type { LiveRecognitionResultDto, RecognitionFaceDto } from '../../types/camera.types';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const CSS = `
   @keyframes scanLine {
@@ -36,8 +36,8 @@ const CSS = `
     50%      { opacity:.3; }
   }
   .face-card { border:1px solid #e6eaf0; border-radius:12px; padding:14px; margin-bottom:10px;
-               transition:border-color .2s; animation:fadeIn .3s ease both; background:#fff; }
-  .face-card.known { border-color:#b7eb8f; background:#f6ffed; }
+               transition:border-color .2s; animation:fadeIn .3s ease both; background:var(--app-surface); }
+  .face-card.known { border-color:#b7eb8f; background:var(--app-soft-green); }
   .face-card:hover { border-color:#1677ff; }
 `;
 
@@ -91,7 +91,7 @@ function FaceCard({ face }: { face: RecognitionFaceDto }) {
                     ) : (
                         <div style={{
                             width: 54, height: 54, borderRadius: 8, flexShrink: 0,
-                            background: '#f5f5f5', border: '1px solid #e6eaf0',
+                            background: 'var(--app-surface-2)', border: '1px solid var(--app-border)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                             <UserOutlined style={{ color: '#bfbfbf', fontSize: 20 }} />
@@ -216,11 +216,11 @@ export default function CameraDetailPage() {
             {ctx}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-            <div style={{ background: '#f7f9fc', minHeight: '100vh', padding: '16px 20px', direction: 'rtl' }}>
+            <div style={{ background: 'var(--app-page-bg)', minHeight: '100vh', padding: '16px 20px', direction: 'rtl' }}>
 
                 {/* Top bar */}
                 <div style={{
-                    background: '#fff', border: '1px solid #e6eaf0', borderRadius: 12,
+                    background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 12,
                     padding: '12px 18px', marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,.05)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     flexWrap: 'wrap', gap: 12,
@@ -257,15 +257,15 @@ export default function CameraDetailPage() {
                     <Space size={10}>
                         {liveOn && <Badge status="processing" text={<Text style={{ color: '#52c41a', fontWeight: 600 }}>LIVE</Text>} />}
                         {[
-                            { label: 'الفريمات', value: frameCount, color: '#595959' },
+                            { label: 'الفريمات', value: frameCount, color: 'var(--app-muted)' },
                             { label: 'التعرفات', value: totalKnown, color: '#52c41a' },
                         ].map(s => (
                             <div key={s.label} style={{
-                                background: '#f7f9fc', border: '1px solid #e6eaf0',
+                                background: 'var(--app-page-bg)', border: '1px solid var(--app-border)',
                                 borderRadius: 8, padding: '4px 14px', textAlign: 'center',
                             }}>
                                 <div style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</div>
-                                <div style={{ fontSize: 10, color: '#8c8c8c' }}>{s.label}</div>
+                                <div style={{ fontSize: 10, color: 'var(--app-muted)' }}>{s.label}</div>
                             </div>
                         ))}
                     </Space>
@@ -276,10 +276,10 @@ export default function CameraDetailPage() {
 
                     {/* Video */}
                     <Col xs={24} lg={14}>
-                        <div style={{ background: '#fff', border: '1px solid #e6eaf0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
+                        <div style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>
                             {/* Viewport */}
                             <div style={{
-                                background: '#000', position: 'relative',
+                                background: 'var(--app-video-bg)', position: 'relative',
                                 minHeight: 300, aspectRatio: '16/9',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                             }}>
@@ -372,7 +372,7 @@ export default function CameraDetailPage() {
                     {/* Results */}
                     <Col xs={24} lg={10}>
                         <div style={{
-                            background: '#fff', border: '1px solid #e6eaf0', borderRadius: 14,
+                            background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 14,
                             padding: 14, height: '100%', display: 'flex', flexDirection: 'column',
                             boxShadow: '0 1px 4px rgba(0,0,0,.05)',
                         }}>
