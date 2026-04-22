@@ -1,9 +1,6 @@
 import { DeleteOutlined } from '@mui/icons-material';
 import {
-    Form, Input, Select, DatePicker, Switch,
-    Upload, Button, Card, Row, Col,
-    Typography, Space, Image, message,
-    Spin, Alert, Divider,
+   Button ,Image
 } from 'antd';
 import { PersonFaceImageDto } from '../../types/person.types';
 

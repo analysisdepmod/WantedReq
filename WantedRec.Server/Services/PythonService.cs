@@ -1,114 +1,149 @@
-﻿ 
-using Python.Runtime;
- 
+﻿using Python.Runtime;
+using System;
+using System.IO;
 
 namespace WantedRec.Server.Services
 {
     public class PythonService : IDisposable
     {
+        private static readonly object _lock = new();
+        private static bool _initialized = false;
+        private static bool _allowThreadsCalled = false;
 
-        public string Messege = string.Empty;
-       
+        public string Message { get; private set; } = string.Empty;
+
         public PythonService()
         {
-            Messege = InitializePython();
-            PythonEngine.BeginAllowThreads();
-             
+            Message = InitializePython();
         }
-        public   string InitializePython()
-        {  
 
-            try
+        public string InitializePython()
+        {
+            lock (_lock)
             {
-                PythonEngine.Initialize(); // Initialize the Python engine
-           
+                if (_initialized)
+                    return "ok";
 
-                return "ok";
-            }
-            catch (Exception ex) 
-            {
-                if (ex is PythonException)
+                try
                 {
-                  return string.Empty;
-                
+                    // عدل هذا حسب نسخة البايثون عندك
+                    var pyHome = @"C:\Python311";
+                    var pyDll = Path.Combine(pyHome, "python311.dll");
+
+                    if (!File.Exists(pyDll))
+                        return $"Python DLL not found: {pyDll}";
+
+                    Runtime.PythonDLL = pyDll;
+                    Environment.SetEnvironmentVariable("PYTHONNET_PYDLL", pyDll);
+                    Environment.SetEnvironmentVariable("PYTHONHOME", pyHome);
+
+                    var dllsPath = Path.Combine(pyHome, "DLLs");
+                    var libPath = Path.Combine(pyHome, "Lib");
+
+                    Environment.SetEnvironmentVariable(
+                        "PATH",
+                        pyHome + ";" + dllsPath + ";" + libPath + ";" +
+                        (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                    );
+
+                    PythonEngine.Initialize();
+
+                    if (!_allowThreadsCalled)
+                    {
+                        PythonEngine.BeginAllowThreads();
+                        _allowThreadsCalled = true;
+                    }
+
+                    _initialized = true;
+                    return "ok";
                 }
-                return string.Empty;
-                 
+                catch (Exception ex)
+                {
+                    return ex.ToString();
+                }
             }
         }
+
         public string RunTranslation(TranslatorDto dto)
         {
-            
             try
             {
-                
-                using (Py.GIL()) // Acquire the GIL
+                EnsureInitialized();
+
+                using (Py.GIL())
                 {
-                    dynamic translator = Py.Import("translator"); // Import your Python module
-                    try
-                    {
-                        var x = translator.run_translation(dto.Text, dto.Sl, dto.Tl);
-                        return x;
-                    }
-                    catch (Exception ex)
-                    {
-                        
-                            return string.Empty;
-                        
-                    }
+                    AddCurrentDirectoryToPythonPath();
+
+                    dynamic translator = Py.Import("translator");
+                    var result = translator.run_translation(dto.Text, dto.Sl, dto.Tl);
+
+                    return result?.ToString() ?? string.Empty;
                 }
             }
             catch (Exception ex)
             {
-                return string.Empty;
+                return ex.ToString();
             }
-            
-       
         }
-
 
         public string RunTranslationGet(TranslatorDto dto)
         {
-       
             try
             {
-              
-                using (Py.GIL())  
+                EnsureInitialized();
+
+                using (Py.GIL())
                 {
-                    dynamic translator = Py.Import("translator"); // Import your Python module
-                    try
-                    {
-                        return translator.gettranslate(dto.Text, dto.Sl, dto.Tl);
-                    
-                    }
-                    catch (Exception ex)
-                    {
+                    AddCurrentDirectoryToPythonPath();
 
-                        return string.Empty;
+                    dynamic translator = Py.Import("translator");
+                    var result = translator.gettranslate(dto.Text, dto.Sl, dto.Tl);
 
-                    }
+                    return result?.ToString() ?? string.Empty;
                 }
             }
             catch (Exception ex)
             {
-                return string.Empty;
+                return ex.ToString();
             }
-
-
         }
 
+        private static void EnsureInitialized()
+        {
+            if (!_initialized)
+                throw new InvalidOperationException("Python engine is not initialized.");
+        }
+
+        private static void AddCurrentDirectoryToPythonPath()
+        {
+            dynamic sys = Py.Import("sys");
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            if (!(bool)sys.path.__contains__(baseDir))
+                sys.path.append(baseDir);
+
+            string pyScriptsDir = Path.Combine(baseDir, "PythonScripts");
+            if (Directory.Exists(pyScriptsDir) && !(bool)sys.path.__contains__(pyScriptsDir))
+                sys.path.append(pyScriptsDir);
+        }
 
         public void Dispose()
         {
-            try
-            {
-                PythonEngine.Shutdown(); // Cleanup
-            }
-            catch (Exception ex) {
-                Messege +=   string.Empty;
+            // لا تطفي Python هنا إذا الخدمة مو Singleton
+            // خليها فارغة أو طفّيها فقط عند إغلاق التطبيق
+        }
 
+        public static void ShutdownPython()
+        {
+            lock (_lock)
+            {
+                if (_initialized)
+                {
+                    PythonEngine.Shutdown();
+                    _initialized = false;
+                    _allowThreadsCalled = false;
+                }
             }
-         
         }
     }
 }

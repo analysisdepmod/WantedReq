@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿ 
  
 import { message } from "antd";
 import { useMemo, useState, useEffect} from "react";

@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -164,7 +164,7 @@ function ResultPanel({
                                 <Space>
                                     {face.isKnown
                                         ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                                        : <CloseCircleOutlined style={{ color: '#bbb' }} />}
+                                        : <CloseCircleOutlined style={{ color: 'var(--app-muted)' }} />}
                                     <Text strong style={{ fontSize: 13 }}>
                                         {face.isKnown ? face.name : 'وجه غير معروف'}
                                     </Text>
@@ -378,7 +378,7 @@ export default function RecognitionPage() {
 
     // ── Render ───────────────────────────────────────────
     return (
-        <div style={{ padding: 24, direction: 'rtl' }}>
+        <div style={{ padding: 24, direction: 'rtl', background: 'var(--app-page-bg)', minHeight: '100vh', color: 'var(--app-text)' }}>
             {contextHolder}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
@@ -418,13 +418,13 @@ export default function RecognitionPage() {
                                             </div>
                                         ) : (
                                             <div style={{
-                                                height: 200, border: '2px dashed #d9d9d9',
+                                                height: 200, border: '2px dashed var(--app-border)',
                                                 borderRadius: 8, display: 'flex',
                                                 flexDirection: 'column', alignItems: 'center',
                                                 justifyContent: 'center', marginBottom: 16,
-                                                background: '#fafafa',
+                                                background: 'var(--app-surface-2)',
                                             }}>
-                                                <UploadOutlined style={{ fontSize: 48, color: '#bbb', marginBottom: 8 }} />
+                                                <UploadOutlined style={{ fontSize: 48, color: 'var(--app-muted)', marginBottom: 8 }} />
                                                 <Text type="secondary">اختر صورة</Text>
                                             </div>
                                         )}
@@ -491,7 +491,7 @@ export default function RecognitionPage() {
                                     >
                                         {/* شاشة الكاميرا */}
                                         <div style={{
-                                            background: '#000', borderRadius: 8,
+                                            background: 'var(--app-video-bg)', borderRadius: 8,
                                             overflow: 'hidden', marginBottom: 16,
                                             minHeight: 240, display: 'flex',
                                             alignItems: 'center', justifyContent: 'center',
@@ -518,9 +518,9 @@ export default function RecognitionPage() {
 
                                             {!cameraOn && (
                                                 <div style={{ textAlign: 'center', padding: 40 }}>
-                                                    <CameraOutlined style={{ fontSize: 56, color: '#555', marginBottom: 12 }} />
+                                                    <CameraOutlined style={{ fontSize: 56, color: 'var(--app-muted)', marginBottom: 12 }} />
                                                     <br />
-                                                    <Text style={{ color: '#aaa' }}>افتح الكاميرا للبدء</Text>
+                                                    <Text style={{ color: 'var(--app-muted)' }}>افتح الكاميرا للبدء</Text>
                                                 </div>
                                             )}
                                         </div>

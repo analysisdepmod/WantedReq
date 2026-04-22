@@ -2,7 +2,6 @@
 import type {
     ApiResponse,
     PersonDetailDto,
-    PersonListItemDto,
     PersonUpsertDto,
     PersonFaceImageDto,
     RecognitionResultDto,

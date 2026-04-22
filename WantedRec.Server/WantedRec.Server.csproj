@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\wantedrec.client</SpaRoot>
-    <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
-    <SpaProxyServerUrl>https://localhost:57555</SpaProxyServerUrl>
+	  <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
+	  <SpaProxyServerUrl>http://localhost:5555</SpaProxyServerUrl>
   </PropertyGroup>
 
   <ItemGroup>

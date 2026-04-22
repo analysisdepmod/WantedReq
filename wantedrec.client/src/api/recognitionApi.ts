@@ -1,21 +1,4 @@
-﻿// ════════════════════════════════════════════════════════
-//  src/api/recognitionApi.ts
-//  ضعه في: src/api/recognitionApi.ts
-//
-//  ⚠️  يحتاج endpoint جديد في RecognitionController:
-//      GET /api/recognitions  (مع query params للفلترة)
-//
-//  مثال الـ endpoint:
-//  [HttpGet]
-//  public async Task<ActionResult<ApiResponse<List<RecognitionDto>>>> GetAsync(
-//      [FromQuery] int? cameraId,
-//      [FromQuery] int? personId,
-//      [FromQuery] string? fromDate,
-//      [FromQuery] string? toDate,
-//      [FromQuery] bool? isMatch,
-//      [FromQuery] int? recognitionStatus,
-//      CancellationToken ct = default)
-// ════════════════════════════════════════════════════════
+﻿
 
 import axiosInstance from '../api';
 import type { ApiResponse } from '../types/person.types';

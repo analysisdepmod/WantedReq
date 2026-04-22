@@ -1,7 +1,4 @@
-// ═══════════════════════════════════════════════════════
-//  src/hooks/useCameras.ts
-//  هوك إدارة الكاميرات — CRUD + toggle
-// ═══════════════════════════════════════════════════════
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';

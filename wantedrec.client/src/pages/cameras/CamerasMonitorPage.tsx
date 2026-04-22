@@ -1,62 +1,115 @@
-// ═══════════════════════════════════════════════════════
-//  src/pages/cameras/CamerasMonitorPage.tsx
-//  Route: /cameras/monitor
-//  يفتح تابَّين جديدَّين فوراً عند الدخول
-// ═══════════════════════════════════════════════════════
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spin, Typography, Space } from 'antd';
-import { VideoCameraOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
 export default function CamerasMonitorPage() {
-    const navigate  = useNavigate();
-    const opened    = useRef(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        if (opened.current) return;
-        opened.current = true;
+        const resultsWin = window.open('/cameras/results', 'live-results');
+        resultsWin?.blur?.();
 
-        // تاب 1: الكاميرات المباشرة
-        window.open('/cameras/live', '_blank', 'noopener');
+        const timer = window.setTimeout(() => {
+            navigate('/cameras/live', { replace: true });
+        }, 1300);
 
-        // تاب 2: نتائج التعرف (تأخير خفيف لتجنب popup blocker)
-        setTimeout(() => {
-            window.open('/cameras/results', '_blank', 'noopener');
-        }, 300);
-
-        // ارجع للصفحة السابقة بعد ثانية
-        setTimeout(() => navigate(-1), 1200);
+        return () => window.clearTimeout(timer);
     }, [navigate]);
 
     return (
-        <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            minHeight: '100vh', background: '#f4f6fb', flexDirection: 'column', gap: 20,
-            direction: 'rtl',
-        }}>
-            <div style={{
-                background: '#fff', border: '1px solid #e4e9f2', borderRadius: 20,
-                padding: '48px 64px', textAlign: 'center',
-                boxShadow: '0 8px 32px rgba(15,23,42,.08)',
-            }}>
-                <Spin size="large" style={{ marginBottom: 20 }} />
-                <Title level={4} style={{ marginBottom: 8 }}>جاري فتح شاشات المراقبة</Title>
-                <Space direction="vertical" size={8}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a' }}>
-                        <VideoCameraOutlined />
-                        <Text style={{ color: '#16a34a', fontWeight: 600 }}>تاب 1: شاشة الكاميرات المباشرة</Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#2563eb' }}>
-                        <CheckCircleOutlined />
-                        <Text style={{ color: '#2563eb', fontWeight: 600 }}>تاب 2: نتائج التعرف</Text>
-                    </div>
-                </Space>
-                <br />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                    لو لم تفتح التابات، تأكد من السماح بالـ Popups لهذا الموقع
+        <div
+            style={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                direction: 'rtl',
+                padding: 24,
+                background: 'var(--app-page-bg)',
+                color: 'var(--app-text)',
+            }}
+        >
+            <div
+                style={{
+                    width: 'min(560px, 100%)',
+                    background: 'var(--app-surface)',
+                    border: '1px solid var(--app-border)',
+                    borderRadius: 22,
+                    padding: '42px 28px',
+                    textAlign: 'center',
+                    boxShadow: 'var(--app-shadow)',
+                }}
+            >
+                <div
+                    style={{
+                        width: 82,
+                        height: 82,
+                        margin: '0 auto 18px',
+                        borderRadius: 22,
+                        background: 'linear-gradient(135deg, var(--app-hero-start), var(--app-hero-end))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <VideoCameraOutlined style={{ fontSize: 34, color: '#fff' }} />
+                </div>
+
+                <Spin indicator={<LoadingOutlined spin style={{ fontSize: 28 }} />} />
+
+                <Title level={3} style={{ marginTop: 18, marginBottom: 6, color: 'var(--app-text)' }}>
+                    جاري فتح صفحة المراقبة
+                </Title>
+
+                <Text style={{ color: 'var(--app-muted)', fontSize: 14 }}>
+                    يتم تجهيز البث المباشر في هذه الصفحة
                 </Text>
+
+                <div
+                    style={{
+                        marginTop: 22,
+                        background: 'var(--app-surface-2)',
+                        border: '1px solid var(--app-border)',
+                        borderRadius: 16,
+                        padding: '14px 16px',
+                        textAlign: 'right',
+                    }}
+                >
+                    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <CheckCircleOutlined style={{ color: '#16a34a' }} />
+                                <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                                    النتائج المباشرة
+                                </Text>
+                            </div>
+                            <Text style={{ color: '#2563eb', fontWeight: 600 }}>
+                                تم فتحها في تاب جديد
+                            </Text>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <CheckCircleOutlined style={{ color: '#16a34a' }} />
+                                <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                                    البث المباشر
+                                </Text>
+                            </div>
+                            <Text style={{ color: '#2563eb', fontWeight: 600 }}>
+                                سيظهر هنا بعد لحظات
+                            </Text>
+                        </div>
+                    </Space>
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                    <Text style={{ color: 'var(--app-muted)', fontSize: 12 }}>
+                        إذا لم يتم فتح تبويب النتائج، تأكد من السماح بالـ Popups لهذا الموقع
+                    </Text>
+                </div>
             </div>
         </div>
     );

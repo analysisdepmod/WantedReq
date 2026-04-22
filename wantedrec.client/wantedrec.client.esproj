@@ -19,6 +19,5 @@
   <ItemGroup>
     <None Remove="app\reducers\authSlice.ts~RF4f2ff13.TMP" />
     <None Remove="src\5bwxjrre.yai~" />
-    <None Remove="src\pages\TargetsMangeMinistry\ListTargetsMangeMinistry.tsx~RFce9b8a.TMP" />
   </ItemGroup>
 </Project>

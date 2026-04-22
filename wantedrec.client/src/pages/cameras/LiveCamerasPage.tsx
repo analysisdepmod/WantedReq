@@ -116,7 +116,7 @@ function LocalCameraPanel({ camera, deviceId, intervalSec, onRecognized }: {
 
     return (
         <CamShell camera={camera} frames={frames} pending={pending} threatLevel={threatLevel} error={error ?? undefined}>
-            <div style={{ background: '#0f172a', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--app-video-bg)', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
                 <video ref={videoRef} autoPlay playsInline muted
                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: ready ? 'block' : 'none' }} />
                 <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -162,7 +162,7 @@ function LocalCameraPanel({ camera, deviceId, intervalSec, onRecognized }: {
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
                                   alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                         <Spin />
-                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>جاري الاتصال…</Text>
+                        <Text style={{ color: 'var(--app-muted)', fontSize: 11 }}>جاري الاتصال…</Text>
                     </div>
                 )}
             </div>
@@ -214,14 +214,14 @@ function IpRtspPanel({ camera, intervalSec, onRecognized }: {
 
     return (
         <CamShell camera={camera} frames={frames} pending={pending} threatLevel={threatLevel} error={error ?? undefined}>
-            <div style={{ background: '#0f172a', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--app-video-bg)', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
                 {imgSrc
                     ? <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {error
                             ? <div style={{ textAlign: 'center' }}>
-                                <WifiOutlined style={{ fontSize: 32, color: '#475569', marginBottom: 6 }} />
-                                <br /><Text style={{ color: '#64748b', fontSize: 11 }}>NO SIGNAL</Text>
+                                <WifiOutlined style={{ fontSize: 32, color: 'var(--app-muted)', marginBottom: 6 }} />
+                                <br /><Text style={{ color: 'var(--app-muted)', fontSize: 11 }}>NO SIGNAL</Text>
                               </div>
                             : <Spin />}
                       </div>
@@ -278,11 +278,11 @@ function IpMjpegPanel({ camera, intervalSec, onRecognized }: {
 
     return (
         <CamShell camera={camera} frames={frames} pending={pending} threatLevel={threatLevel}>
-            <div style={{ background: '#0f172a', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--app-video-bg)', aspectRatio: '16/9', position: 'relative', overflow: 'hidden' }}>
                 {imgErr
                     ? <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                        <WifiOutlined style={{ fontSize: 32, color: '#475569', marginBottom: 6 }} />
-                        <Text style={{ color: '#64748b', fontSize: 11 }}>NO SIGNAL</Text>
+                        <WifiOutlined style={{ fontSize: 32, color: 'var(--app-muted)', marginBottom: 6 }} />
+                        <Text style={{ color: 'var(--app-muted)', fontSize: 11 }}>NO SIGNAL</Text>
                       </div>
                     : <img ref={imgRef} src={camera.streamUrl} onError={() => setImgErr(true)}
                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
@@ -312,7 +312,7 @@ function CamShell({ camera, frames, pending, threatLevel, error, children }: {
     return (
         <div className={`cam-panel${threatLevel === 'suspect' ? ' suspect' : ''}`}
              style={{
-                 background: '#fff', borderRadius: 14, overflow: 'hidden',
+                 background: 'var(--app-surface)', borderRadius: 14, overflow: 'hidden',
                  border: `1px solid ${borderColor}`,
                  boxShadow: threatLevel === 'suspect'
                      ? '0 0 24px rgba(220,38,38,.25)' : '0 4px 16px rgba(15,23,42,.08)',
@@ -323,22 +323,22 @@ function CamShell({ camera, frames, pending, threatLevel, error, children }: {
 
             {/* Info bar */}
             <div style={{
-                padding: '8px 12px', background: '#0f172a',
+                padding: '8px 12px', background: 'var(--app-surface-2)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
                 <div>
-                    <Text style={{ color: '#f1f5f9', fontSize: 12, fontWeight: 600, display: 'block' }}>
+                    <Text style={{ color: 'var(--app-text)', fontSize: 12, fontWeight: 600, display: 'block' }}>
                         {camera.name}
                     </Text>
                     {camera.area && (
-                        <Text style={{ color: '#64748b', fontSize: 10 }}>
+                        <Text style={{ color: 'var(--app-muted)', fontSize: 10 }}>
                             {camera.area}
                         </Text>
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {frames > 0 && (
-                        <Text style={{ color: '#475569', fontSize: 10 }}>{frames}F</Text>
+                        <Text style={{ color: 'var(--app-muted)', fontSize: 10 }}>{frames}F</Text>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{
@@ -346,7 +346,7 @@ function CamShell({ camera, frames, pending, threatLevel, error, children }: {
                             background: pending ? '#f59e0b' : '#22c55e',
                             display: 'inline-block', animation: 'pulse 2s infinite',
                         }} />
-                        <Text style={{ color: '#94a3b8', fontSize: 10 }}>
+                        <Text style={{ color: 'var(--app-muted)', fontSize: 10 }}>
                             {pending ? 'AI' : 'LIVE'}
                         </Text>
                     </div>
@@ -355,7 +355,7 @@ function CamShell({ camera, frames, pending, threatLevel, error, children }: {
             </div>
 
             {error && (
-                <div style={{ padding: '4px 12px', background: '#fef2f2', borderTop: '1px solid #fee2e2' }}>
+                <div style={{ padding: '4px 12px', background: 'var(--app-soft-red)', borderTop: '1px solid #fee2e2' }}>
                     <Text style={{ color: '#dc2626', fontSize: 11 }}>{error}</Text>
                 </div>
             )}
@@ -380,7 +380,7 @@ export default function LiveCamerasPage() {
 
     if (!devicesReady || isLoading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      minHeight: '100vh', background: '#f4f6fb', flexDirection: 'column', gap: 14 }}>
+                      minHeight: '100vh', background: 'var(--app-page-bg)', flexDirection: 'column', gap: 14 }}>
             <Spin size="large" />
             <Text type="secondary">{devicesReady ? 'جاري تحميل الكاميرات…' : 'الوصول لأجهزة الكاميرا…'}</Text>
         </div>
@@ -389,11 +389,11 @@ export default function LiveCamerasPage() {
     return (
         <>
             <style>{CSS}</style>
-            <div style={{ background: '#f4f6fb', minHeight: '100vh', direction: 'rtl' }}>
+            <div style={{ background: 'var(--app-page-bg)', minHeight: '100vh', direction: 'rtl' }}>
 
                 {/* ── Top bar ──────────────────────────────── */}
                 <div style={{
-                    background: '#0f172a', padding: '10px 20px',
+                    background: 'linear-gradient(135deg,var(--app-hero-start),var(--app-hero-end))', padding: '10px 20px',
                     display: 'flex', justifyContent: 'space-between',
                     alignItems: 'center', flexWrap: 'wrap', gap: 10,
                 }}>
@@ -406,10 +406,10 @@ export default function LiveCamerasPage() {
                             <ThunderboltOutlined style={{ color: '#fff', fontSize: 18 }} />
                         </div>
                         <div>
-                            <Text style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14, display: 'block' }}>
+                            <Text style={{ color: '#fff', fontWeight: 700, fontSize: 14, display: 'block' }}>
                                 مركز المراقبة المباشرة
                             </Text>
-                            <Text style={{ color: '#64748b', fontSize: 11 }}>
+                            <Text style={{ color: 'var(--app-muted)', fontSize: 11 }}>
                                 NODE: CAM-CTRL • بث مباشر
                             </Text>
                         </div>
@@ -417,16 +417,16 @@ export default function LiveCamerasPage() {
 
                     <Space size={10} wrap>
                         {[
-                            { label: 'الفريمات',    value: totalFrames, color: '#94a3b8' },
+                            { label: 'الفريمات',    value: totalFrames, color: 'var(--app-muted)' },
                             { label: 'التعرفات',    value: totalKnown,  color: '#22c55e' },
                             { label: 'الكاميرات',   value: cameras.length, color: '#60a5fa' },
                         ].map(s => (
                             <div key={s.label} style={{
-                                background: '#1e293b', border: '1px solid #334155',
+                                background: 'var(--app-surface-2)', border: '1px solid var(--app-border)',
                                 borderRadius: 8, padding: '4px 12px', textAlign: 'center',
                             }}>
                                 <div style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</div>
-                                <div style={{ fontSize: 10, color: '#64748b' }}>{s.label}</div>
+                                <div style={{ fontSize: 10, color: 'var(--app-muted)' }}>{s.label}</div>
                             </div>
                         ))}
 
@@ -461,7 +461,7 @@ export default function LiveCamerasPage() {
                 {/* ── Device mapping ───────────────────────── */}
                 {showMap && localCameras.length > 0 && (
                     <div style={{
-                        background: '#fff', borderBottom: '1px solid #e4e9f2',
+                        background: 'var(--app-surface)', borderBottom: '1px solid var(--app-border)',
                         padding: '10px 20px',
                         display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                     }}>
@@ -469,7 +469,7 @@ export default function LiveCamerasPage() {
                         <Text style={{ fontSize: 12, fontWeight: 600 }}>ضبط الأجهزة المحلية:</Text>
                         {localCameras.map(cam => (
                             <Space key={cam.cameraId} size={6}>
-                                <Text style={{ fontSize: 12, color: '#475569' }}>{cam.name}:</Text>
+                                <Text style={{ fontSize: 12, color: 'var(--app-muted)' }}>{cam.name}:</Text>
                                 <Select
                                     size="small" style={{ width: 200 }}
                                     value={deviceMapping[cam.cameraId] ?? getDeviceId(cam) ?? undefined}
@@ -487,7 +487,7 @@ export default function LiveCamerasPage() {
                 {/* ── Local devices bar ────────────────────── */}
                 {localDevices.length > 0 && (
                     <div style={{
-                        background: '#eff6ff', borderBottom: '1px solid #bfdbfe',
+                        background: 'var(--app-soft-blue)', borderBottom: '1px solid #bfdbfe',
                         padding: '6px 20px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
                     }}>
                         <HomeOutlined style={{ color: '#2563eb', fontSize: 12 }} />
@@ -506,7 +506,7 @@ export default function LiveCamerasPage() {
                 <div style={{ padding: '16px 20px' }}>
                     {cameras.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 80,
-                                      background: '#fff', borderRadius: 16, border: '1px solid #e4e9f2' }}>
+                                      background: 'var(--app-surface)', borderRadius: 16, border: '1px solid var(--app-border)' }}>
                             <VideoCameraOutlined style={{ fontSize: 64, color: '#cbd5e1' }} />
                             <br /><br />
                             <Text type="secondary">لا توجد كاميرات نشطة</Text>
