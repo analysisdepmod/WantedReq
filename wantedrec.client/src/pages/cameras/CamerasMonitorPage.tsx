@@ -85,17 +85,17 @@ export default function CamerasMonitorPage() {
         localStorage.setItem(STORAGE_KEY, String(deviceId));
         setPhase('launching');
 
-        const resultsWin = window.open('/cameras/results', 'live-results');
-        const blocked = !resultsWin;
-        setPopupBlocked(blocked);
+        //const resultsWin = window.open('/cameras');
+        //const blocked = !resultsWin;
+        //setPopupBlocked(blocked);
 
-        if (resultsWin) {
-            resultsWin.blur?.();
-        }
+        //if (resultsWin) {
+        //    resultsWin.blur?.();
+        //}
 
         cleanupTimer();
         timerRef.current = window.setTimeout(() => {
-            navigate('/cameras/live', { replace: true });
+            navigate('/cameras', { replace: true });
         }, 1300);
     }, [navigate]);
 

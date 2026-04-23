@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using NuGet.Frameworks;
 using System.Net;
 
@@ -79,16 +80,13 @@ namespace WantedRec.Server.Controllers
             {
                 var result = await _personService.CreateAsync(dto, cancellationToken);
 
-                return CreatedAtAction(
-                    nameof(GetByIdAsync),
-                    new { id = result.PersonId },
+                return Ok(
                     ApiResponse<PersonDetailDto>.Success(result, "Person created successfully"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating person");
-                return StatusCode(
-                    (int)HttpStatusCode.InternalServerError,
+                return Ok(
                     ApiResponse<PersonDetailDto>.Fail("An error occurred while creating the person"));
             }
         }

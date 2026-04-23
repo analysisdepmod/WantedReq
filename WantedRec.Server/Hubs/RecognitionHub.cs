@@ -1,28 +1,22 @@
-﻿ 
- 
-
+﻿
 namespace WantedRec.Server.Hubs
 {
-    /// <summary>
-    /// Hub للإشعارات الفورية عند التعرف على الوجوه.
-    /// يُستخدم من RecognitionController لإرسال الحدث لكل المتصلين.
-    /// </summary>
     public class RecognitionHub : Hub
     {
         public override Task OnConnectedAsync()
         {
-            // انضمام لمجموعة "monitors" — كل من يريد استقبال نتائج التعرف
             Groups.AddToGroupAsync(Context.ConnectionId, "monitors");
             return base.OnConnectedAsync();
         }
     }
 
-    // ── DTO تُرسل عبر SignalR ─────────────────────────────
     public class RecognitionSignalDto
     {
         public long RecognitionId { get; set; }
         public int? PersonId { get; set; }
         public string? PersonFullName { get; set; }
+        public string? PersonDisplayName { get; set; }
+        public string? NationalId { get; set; }
         public string? CameraName { get; set; }
         public int? CameraId { get; set; }
         public double? Score { get; set; }
@@ -32,15 +26,26 @@ namespace WantedRec.Server.Hubs
         public DateTime RecognitionDateTime { get; set; }
         public int? UserDeviceId { get; set; }
         public bool IsLocalCamera { get; set; }
+
+        public PersonSecurityStatus? SecurityStatus { get; set; }
+        public DangerLevel? DangerLevel { get; set; }
+        public bool HasActiveAlert { get; set; }
+        public bool IsArmedAndDangerous { get; set; }
+        public string? SecurityReason { get; set; }
+        public string? CaseNumber { get; set; }
+        public string? IssuedBy { get; set; }
+        public DateTime? LastSeenAt { get; set; }
+        public string? LastSeenLocation { get; set; }
+        public string? AlertInstructions { get; set; }
+        public string? Aliases { get; set; }
+        public string? VehicleInfo { get; set; }
     }
 
-    // ── Interface للـ notifier ────────────────────────────
     public interface IRecognitionNotifier
     {
         Task NotifyAsync(RecognitionSignalDto dto, CancellationToken ct = default);
     }
 
-    // ── Implementation ────────────────────────────────────
     public class RecognitionNotifier : IRecognitionNotifier
     {
         private readonly IHubContext<RecognitionHub> _hub;
@@ -52,10 +57,7 @@ namespace WantedRec.Server.Hubs
 
         public async Task NotifyAsync(RecognitionSignalDto dto, CancellationToken ct = default)
         {
-            // يُرسل لكل المتصلين في مجموعة "monitors"
-            await _hub.Clients
-                .Group("monitors")
-                .SendAsync("RecognitionDetected", dto, ct);
+            await _hub.Clients.Group("monitors").SendAsync("RecognitionDetected", dto, ct);
         }
     }
 }

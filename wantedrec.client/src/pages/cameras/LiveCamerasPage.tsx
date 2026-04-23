@@ -44,6 +44,8 @@ const getCurrentDeviceId = (): number | null => {
     return Number.isNaN(parsed) ? null : parsed;
 };
 
+
+
 const getLocalDeviceLabel = (d: MediaDeviceInfo, index: number) =>
     d.label?.trim() || `كاميرا ${index}`;
 
@@ -701,6 +703,12 @@ export default function LiveCamerasPage() {
     const [layout, setLayout] = useState<'2' | '3' | '4'>('3');
 
     useEffect(() => {
+        const DID = getCurrentDeviceId();
+        console.log(DID)
+
+    }, [])
+
+    useEffect(() => {
         const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
 
         window.addEventListener('storage', syncDevice);
@@ -907,7 +915,7 @@ export default function LiveCamerasPage() {
                             type="warning"
                             showIcon
                             message="لم يتم تحديد الجهاز الحالي"
-                            description="الكامرات المحلية تعتمد على الجهاز المختار. افتح صفحة المراقبة الرئيسية أولًا وحدد هل هذا جهاز جديد أو قديم."
+                            description="الكامرات المحلية تعتمد على الجهاز المختار. افتح صفحة ضبط الجهاز مع الكامرات الرئيسية أولًا وحدد هل هذا جهاز جديد أو قديم."
                         />
                     </div>
                 )}
@@ -963,7 +971,7 @@ export default function LiveCamerasPage() {
                         <SettingOutlined style={{ color: '#2563eb' }} />
                         <Text style={{ fontSize: 12, fontWeight: 600 }}>ضبط الأجهزة المحلية:</Text>
 
-                        {localCameras.map(cam => (
+                        {cameras.map(cam => (
                             <Space key={cam.cameraId} size={6}>
                                 <Text style={{ fontSize: 12, color: 'var(--app-muted)' }}>
                                     {cam.name} [{cam.localDeviceIndex ?? '-'}]:

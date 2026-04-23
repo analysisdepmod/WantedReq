@@ -2,8 +2,7 @@
 {
     public class PersonUpsertDto
     {
-        public int? PersonId { get; set; }  // null في حالة الإضافة
-        
+        public int? PersonId { get; set; }
 
         // بيانات الشخص
         public string FullName { get; set; } = null!;
@@ -14,11 +13,33 @@
         public string? ExternalCode { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Address { get; set; }
-
         public string? Notes { get; set; }
         public bool IsActive { get; set; }
 
-        // صور الوجه (إضافة/تعديل/حذف مع نفس الطلب)
+        // بيانات أمنية
+        public PersonSecurityStatus SecurityStatus { get; set; } = PersonSecurityStatus.طبيعي;
+        public DangerLevel DangerLevel { get; set; } = DangerLevel.لا_يوجد;
+        public bool HasActiveAlert { get; set; }
+        public bool IsArmedAndDangerous { get; set; }
+
+        public string? SecurityReason { get; set; }
+        public string? CaseNumber { get; set; }
+        public string? IssuedBy { get; set; }
+        public string? ArrestWarrantNumber { get; set; }
+
+        public DateTime? AlertIssuedAt { get; set; }
+        public DateTime? AlertExpiresAt { get; set; }
+        public DateTime? LastSeenAt { get; set; }
+        public string? LastSeenLocation { get; set; }
+
+        public string? DistinguishingMarks { get; set; }
+        public string? Aliases { get; set; }
+        public string? VehicleInfo { get; set; }
+        public string? SecurityNotes { get; set; }
+        public string? AlertInstructions { get; set; }
+
+
+        // صور الوجه
         public List<PersonFaceImageUpsertDto> FaceImages { get; set; } = new();
     }
 }

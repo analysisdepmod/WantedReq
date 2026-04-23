@@ -1,9 +1,4 @@
-// ════════════════════════════════════════════════════════
-//  src/Home.tsx
-//  الصفحة الرئيسية — تصميم احترافي
-//  يحتفظ بـ: Carousel + Marquee + بطاقات التنقل
-//  يضيف:     إحصائيات + أحداث SignalR المباشرة
-// ════════════════════════════════════════════════════════
+
 
 import { Carousel, Row, Col, Typography, Badge, Space } from 'antd';
 import { useState } from 'react';
@@ -18,8 +13,8 @@ import {
     CheckCircleOutlined, WarningOutlined, UserOutlined,
     ThunderboltOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
-import { setModal } from '../app/reducers/modalSlice';
-import UserPdf from './pages/SpniPdf/userPdf';
+
+
 import { RULES } from './Interfaces/roles';
 import { useImage, useNews } from './hooks/useApi';
 import { useQuery } from '@tanstack/react-query';
@@ -104,27 +99,122 @@ const scoreColor = (s?: number) => !s ? '#94a3b8' : s >= 0.8 ? '#16a34a' : s >= 
 
 // ── Quick Nav Card ────────────────────────────────────────
 function NavCard({
-    to, icon, label, color, bg, badge, delay = 0, onClick,
+    to,
+    icon,
+    label,
+    color,
+    bg,
+    badge,
+    delay = 0,
+    onClick,
 }: {
-    to?: string; icon: React.ReactNode; label: string;
-    color: string; bg: string; badge?: number; delay?: number;
+    to?: string;
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    bg: string;
+    badge?: number;
+    delay?: number;
     onClick?: () => void;
 }) {
     const content = (
-        <div className="home-nav-card" style={{ animationDelay: `${delay}ms` }} onClick={onClick}>
-            <div className="icon-wrap" style={{ background: bg }}>
-                <span style={{ color }}>{icon}</span>
-            </div>
-            <Text strong style={{ fontSize: 13, color: '#0f172a', display: 'block' }}>{label}</Text>
+        <div
+            className="home-nav-card"
+            style={{
+                animationDelay: `${delay}ms`,
+                position: 'relative',
+                minHeight: 128,
+                borderRadius: 18,
+                padding: '18px 16px',
+                background: 'var(--app-surface)',
+                border: '1px solid var(--app-border)',
+                boxShadow: 'var(--app-shadow)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                textAlign: 'center',
+                overflow: 'hidden',
+            }}
+            onClick={onClick}
+        >
+            <div
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    left: 0,
+                    height: 4,
+                    background: `linear-gradient(90deg, ${color}, ${color}aa)`,
+                    borderTopLeftRadius: 18,
+                    borderTopRightRadius: 18,
+                }}
+            />
+
             {badge !== undefined && badge > 0 && (
-                <Badge count={badge} style={{ position: 'absolute', top: 10, left: 10 }} />
+                <Badge
+                    count={badge}
+                    style={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        boxShadow: '0 8px 18px rgba(239,68,68,.22)',
+                    }}
+                />
             )}
+
+            <div
+                className="icon-wrap"
+                style={{
+                    background: bg,
+                    width: 58,
+                    height: 58,
+                    borderRadius: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: `1px solid ${color}22`,
+                    boxShadow: `0 10px 22px ${color}18`,
+                    marginTop: 4,
+                }}
+            >
+                <span style={{ color, fontSize: 25, display: 'flex' }}>{icon}</span>
+            </div>
+
+            <div>
+                <Text
+                    strong
+                    style={{
+                        fontSize: 14,
+                        color: 'var(--app-text)',
+                        display: 'block',
+                        lineHeight: 1.5,
+                    }}
+                >
+                    {label}
+                </Text>
+
+                <Text
+                    style={{
+                        fontSize: 11,
+                        color: 'var(--app-muted)',
+                        display: 'block',
+                        marginTop: 4,
+                    }}
+                >
+                    فتح القسم
+                </Text>
+            </div>
         </div>
     );
 
-    return to
-        ? <Link to={to} style={{ textDecoration: 'none', display: 'block' }}>{content}</Link>
-        : content;
+    return to ? (
+        <Link to={to} style={{ textDecoration: 'none', display: 'block' }}>
+            {content}
+        </Link>
+    ) : (
+        content
+    );
 }
 
 // ════════════════════════════════════════════════════════
@@ -228,7 +318,14 @@ const Home = () => {
                 {/* ════════════════════════════════════════
                     Stats row
                 ════════════════════════════════════════ */}
-                <Row gutter={[10, 10]} style={{ marginBottom: 16 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                        marginBottom: 16,
+                    }}
+                >
                     {[
                         { label: 'الأشخاص', value: persons.length, color: '#2563eb', bg: '#eff6ff', icon: <UserOutlined />, delay: 50 },
                         { label: 'كاميرات نشطة', value: `${activeCams}/${cameras.length}`, color: '#16a34a', bg: '#f0fdf4', icon: <CameraOutlined />, delay: 100 },
@@ -236,23 +333,43 @@ const Home = () => {
                         { label: 'مشتبه بهم', value: suspects, color: '#dc2626', bg: '#fff5f5', icon: <WarningOutlined />, delay: 200 },
                         { label: 'أحداث مباشرة', value: events.length, color: '#d97706', bg: '#fefce8', icon: <ThunderboltOutlined />, delay: 250 },
                     ].map(s => (
-                        <Col key={s.label} xs={12} sm={8} md={6} lg={4} xl={4}>
+                        <div
+                            key={s.label}
+                            style={{
+                                flex: '1 1 180px',
+                                minWidth: 180,
+                            }}
+                        >
                             <div className="stat-mini" style={{ animationDelay: `${s.delay}ms` }}>
-                                <div style={{
-                                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                                    background: s.bg, display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', fontSize: 18, color: s.color,
-                                }}>
+                                <div
+                                    style={{
+                                        width: 38,
+                                        height: 38,
+                                        borderRadius: 10,
+                                        flexShrink: 0,
+                                        background: s.bg,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: 18,
+                                        color: s.color,
+                                    }}
+                                >
                                     {s.icon}
                                 </div>
+
                                 <div>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                                    <div style={{ fontSize: 10, color: 'var(--app-muted)', marginTop: 2 }}>{s.label}</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>
+                                        {s.value}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: 'var(--app-muted)', marginTop: 2 }}>
+                                        {s.label}
+                                    </div>
                                 </div>
                             </div>
-                        </Col>
+                        </div>
                     ))}
-                </Row>
+                </div>
 
                 {/* ════════════════════════════════════════
                     Main layout: Carousel + Live events
@@ -425,31 +542,84 @@ const Home = () => {
                 {/* ════════════════════════════════════════
                     Quick Navigation Cards
                 ════════════════════════════════════════ */}
-                <Row gutter={[14, 14]}>
-                    <NavCard to="/Indexpersons"
-                        icon={<TeamOutlined />} label={t('personpage')}
-                        color="#2563eb" bg="#eff6ff" delay={0} />
-                    <NavCard to="/RecognitionPage"
-                        icon={<ScanOutlined />} label={t('recognizepage')}
-                        color="#7c3aed" bg="#faf5ff" delay={50} />
-                    <NavCard to="/cameras"
-                        icon={<CameraOutlined />} label={t('cameraspage') || 'الكاميرات'}
-                        color="#16a34a" bg="#f0fdf4"
-                        badge={activeCams} delay={100} />
-                    <NavCard to="/recognition/results"
-                        icon={<CheckCircleOutlined />} label={t('recognitionresults') || 'سجل التعرف'}
-                        color="#0891b2" bg="#ecfeff"
-                        badge={todayRecs} delay={150} />
+                <div
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 16,
+                    }}
+                >
+                    <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                        <NavCard
+                            to="/Indexpersons"
+                            icon={<TeamOutlined />}
+                            label={t('personpage')}
+                            color="#2563eb"
+                            bg="var(--app-soft-blue)"
+                            delay={0}
+                        />
+                    </div>
+
+                    <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                        <NavCard
+                            to="/RecognitionPage"
+                            icon={<ScanOutlined />}
+                            label={t('recognizepage')}
+                            color="#7c3aed"
+                            bg="var(--app-soft-purple)"
+                            delay={50}
+                        />
+                    </div>
+
+                    <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                        <NavCard
+                            to="/cameras"
+                            icon={<CameraOutlined />}
+                            label={t('cameraspage') || 'الكاميرات'}
+                            color="#16a34a"
+                            bg="var(--app-soft-green)"
+                            badge={activeCams}
+                            delay={100}
+                        />
+                    </div>
+
+                    <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                        <NavCard
+                            to="/recognition/results"
+                            icon={<CheckCircleOutlined />}
+                            label={t('recognitionresults') || 'سجل التعرف'}
+                            color="#0891b2"
+                            bg="#ecfeff"
+                            badge={todayRecs}
+                            delay={150}
+                        />
+                    </div>
+
                     {suspects > 0 && (
-                        <NavCard to="/Indexpersons"
-                            icon={<WarningOutlined />} label="المشتبه بهم"
-                            color="#dc2626" bg="#fff5f5"
-                            badge={suspects} delay={200} />
+                        <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                            <NavCard
+                                to="/Indexpersons"
+                                icon={<WarningOutlined />}
+                                label="المشتبه بهم"
+                                color="#dc2626"
+                                bg="var(--app-soft-red)"
+                                badge={suspects}
+                                delay={200}
+                            />
+                        </div>
                     )}
-                    <NavCard onClick={openMonitor}
-                        icon={<ThunderboltOutlined />} label="المراقبة المباشرة"
-                        color="#d97706" bg="#fefce8" delay={250} />
-                </Row>
+
+                    <div style={{ flex: '1 1 180px', minWidth: 180 }}>
+                        <NavCard
+                            onClick={openMonitor}
+                            icon={<ThunderboltOutlined />}
+                            label="المراقبة المباشرة"
+                            color="#d97706"
+                            bg="var(--app-soft-amber)"
+                            delay={250}
+                        />
+                    </div>
+                </div>
             </div>
         </>
     );
