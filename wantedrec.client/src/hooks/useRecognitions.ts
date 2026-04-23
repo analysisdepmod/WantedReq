@@ -1,15 +1,11 @@
-// ═══════════════════════════════════════════════════════
-//  src/hooks/useRecognitions.ts
-//  هوك سجل التعرف — جماعي وفردي
-//  نسخة عامة — النتائج لا تعتمد على الجهاز الحالي
-// ═══════════════════════════════════════════════════════
+
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { getRecognitions, reviewRecognition } from '../api/recognitionApi';
 import type { RecognitionDto, RecognitionReviewDto } from '../types/camera.types';
 import { RecognitionStatus } from '../types/camera.types';
-
+import { DangerLevel, PersonSecurityStatus } from '../types/person.types';
 
 export interface RecognitionFilters {
     cameraId?: number;
@@ -18,6 +14,14 @@ export interface RecognitionFilters {
     dateRange?: [string, string];
     isMatch?: boolean;
 }
+
+type EnrichedRecognition = RecognitionDto & {
+    hasSuspectRecord?: boolean;
+    securityStatus?: PersonSecurityStatus;
+    dangerLevel?: DangerLevel;
+    hasActiveAlert?: boolean;
+    isArmedAndDangerous?: boolean;
+};
 
 export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh = 20_000) {
     const qc = useQueryClient();
@@ -39,8 +43,7 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
     });
 
     const reviewMutation = useMutation({
-        mutationFn: ({ id, dto }: { id: number; dto: RecognitionReviewDto }) =>
-            reviewRecognition(id, dto),
+        mutationFn: ({ id, dto }: { id: number; dto: RecognitionReviewDto }) => reviewRecognition(id, dto),
         onSuccess: () => {
             msgApi.success('تم تحديث حالة التعرف');
             qc.invalidateQueries({ queryKey: ['recognitions'] });
@@ -48,30 +51,31 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
         onError: () => msgApi.error('فشل التحديث'),
     });
 
-    const recognitions = query.data ?? [];
+    const recognitions = (query.data ?? []) as EnrichedRecognition[];
 
     const stats = useMemo(() => {
         const confirmed = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Confirmed).length;
         const pending = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Pending).length;
         const rejected = recognitions.filter(r => r.recognitionStatus === RecognitionStatus.Rejected).length;
-        const suspects = recognitions.filter(r => r.personId).length;
-        const avgScore = recognitions.length
-            ? recognitions.reduce((s, r) => s + (r.recognitionScore ?? 0), 0) / recognitions.length
-            : 0;
+        const suspects = recognitions.filter(r => r.hasSuspectRecord || r.securityStatus === PersonSecurityStatus.Suspect || r.securityStatus === PersonSecurityStatus.WantedAndSuspect).length;
+        const wanted = recognitions.filter(r => r.securityStatus === PersonSecurityStatus.Wanted || r.securityStatus === PersonSecurityStatus.WantedAndSuspect).length;
+        const activeAlerts = recognitions.filter(r => r.hasActiveAlert).length;
+        const armed = recognitions.filter(r => r.isArmedAndDangerous).length;
+        const critical = recognitions.filter(r => r.dangerLevel === DangerLevel.Critical).length;
+        const avgScore = recognitions.length ? recognitions.reduce((s, r) => s + (r.recognitionScore ?? 0), 0) / recognitions.length : 0;
         const cameras = [...new Set(recognitions.map(r => r.cameraName).filter(Boolean))];
         const lastSeen = recognitions[0]?.recognitionDateTime;
-
-        const movementPath: RecognitionDto[] = [...recognitions].sort(
-            (a, b) =>
-                new Date(a.recognitionDateTime).getTime() -
-                new Date(b.recognitionDateTime).getTime()
-        );
+        const movementPath: RecognitionDto[] = [...recognitions].sort((a, b) => new Date(a.recognitionDateTime).getTime() - new Date(b.recognitionDateTime).getTime());
 
         return {
             confirmed,
             pending,
             rejected,
             suspects,
+            wanted,
+            activeAlerts,
+            armed,
+            critical,
             avgScore,
             cameras,
             lastSeen,
@@ -79,9 +83,7 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
         };
     }, [recognitions]);
 
-    const updateFilter = (patch: Partial<RecognitionFilters>) =>
-        setFilters(f => ({ ...f, ...patch }));
-
+    const updateFilter = (patch: Partial<RecognitionFilters>) => setFilters(f => ({ ...f, ...patch }));
     const clearFilters = () => setFilters(defaultFilters ?? {});
 
     return {
@@ -101,7 +103,6 @@ export function useRecognitions(defaultFilters?: RecognitionFilters, autoRefresh
     };
 }
 
-// ── فردي لشخص واحد ───────────────────────────────────────
 export function usePersonRecognitions(personId: number) {
     return useRecognitions({ personId, isMatch: true }, 30_000);
 }

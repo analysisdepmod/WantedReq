@@ -132,6 +132,22 @@ namespace WantedRec.Server.Controllers
                         RecognitionId = r.RecognitionId,
                         PersonId = r.PersonId,
                         PersonFullName = r.Person != null ? r.Person.FullName : null,
+                        PersonDisplayName = r.Person != null ? r.Person.DisplayName : null,
+                        NationalId = r.Person != null ? r.Person.NationalId : null,
+                        PersonIsActive = r.Person != null ? r.Person.IsActive : null,
+                        HasSuspectRecord = r.Person != null && r.Person.Suspect != null,
+                        SecurityStatus = r.Person != null ? r.Person.SecurityStatus : null,
+                        DangerLevel = r.Person != null ? r.Person.DangerLevel : null,
+                        HasActiveAlert = r.Person != null && r.Person.HasActiveAlert,
+                        IsArmedAndDangerous = r.Person != null && r.Person.IsArmedAndDangerous,
+                        SecurityReason = r.Person != null ? r.Person.SecurityReason : null,
+                        CaseNumber = r.Person != null ? r.Person.CaseNumber : null,
+                        IssuedBy = r.Person != null ? r.Person.IssuedBy : null,
+                        LastSeenAt = r.Person != null ? r.Person.LastSeenAt : null,
+                        LastSeenLocation = r.Person != null ? r.Person.LastSeenLocation : null,
+                        AlertInstructions = r.Person != null ? r.Person.AlertInstructions : null,
+                        Aliases = r.Person != null ? r.Person.Aliases : null,
+                        VehicleInfo = r.Person != null ? r.Person.VehicleInfo : null,
                         FaceImageId = r.FaceImageId,
                         SnapshotPath = r.SnapshotPath,
                         CameraId = r.CameraId,
@@ -152,6 +168,7 @@ namespace WantedRec.Server.Controllers
                         CreatedAt = r.CreatedAt,
                         ReviewNotes = r.ReviewNotes,
                         UserDeviceId = r.Camera != null ? r.Camera.UserDeviceId : null,
+
                     })
                     .ToListAsync(ct);
 
@@ -268,6 +285,22 @@ namespace WantedRec.Server.Controllers
                             faceDto.Score = match.Value.Score;
                             faceDto.Name = match.Value.Person.FullName;
                             faceDto.Person = _mapper.Map<PersonListItemDto>(match.Value.Person);
+                            faceDto.Person.SecurityStatus = match.Value.Person.SecurityStatus;
+                            faceDto.Person.DangerLevel = match.Value.Person.DangerLevel;
+                            faceDto.Person.HasActiveAlert = match.Value.Person.HasActiveAlert;
+                            faceDto.Person.IsArmedAndDangerous = match.Value.Person.IsArmedAndDangerous;
+                            faceDto.Person.SecurityReason = match.Value.Person.SecurityReason;
+                            faceDto.Person.CaseNumber = match.Value.Person.CaseNumber;
+                            faceDto.Person.IssuedBy = match.Value.Person.IssuedBy;
+                            faceDto.Person.LastSeenAt = match.Value.Person.LastSeenAt;
+                            faceDto.Person.LastSeenLocation = match.Value.Person.LastSeenLocation;
+                            faceDto.Person.AlertInstructions = match.Value.Person.AlertInstructions;
+                            faceDto.Person.Aliases = match.Value.Person.Aliases;
+                            faceDto.Person.VehicleInfo = match.Value.Person.VehicleInfo;
+                            faceDto.Person.HasSuspectRecord = match.Value.Person.Suspect is not null;
+                            faceDto.Person.NationalId = match.Value.Person.NationalId;
+                            faceDto.Person.IsActive = match.Value.Person.IsActive;
+                            faceDto.Person.DisplayName = match.Value.Person.DisplayName;
 
                             var primaryImage = await _context.PersonFaceImages
                                 .Where(fi => fi.PersonId == personId && fi.IsActive && fi.IsPrimary && fi.FaceProcessedImage != null)
@@ -309,6 +342,8 @@ namespace WantedRec.Server.Controllers
                                 {
                                     PersonId = personId,
                                     PersonFullName = faceDto.Name,
+                                    PersonDisplayName = match.Value.Person.DisplayName,
+                                    NationalId = match.Value.Person.NationalId,
                                     CameraId = resolvedCameraId,
                                     CameraName = cameraName,
                                     Score = match.Value.Score,
@@ -318,6 +353,18 @@ namespace WantedRec.Server.Controllers
                                     RecognitionDateTime = DateTime.UtcNow,
                                     UserDeviceId = allowedCamera?.UserDeviceId,
                                     IsLocalCamera = allowedCamera is not null && string.IsNullOrWhiteSpace(allowedCamera.StreamUrl),
+                                    SecurityStatus = match.Value.Person.SecurityStatus,
+                                    DangerLevel = match.Value.Person.DangerLevel,
+                                    HasActiveAlert = match.Value.Person.HasActiveAlert,
+                                    IsArmedAndDangerous = match.Value.Person.IsArmedAndDangerous,
+                                    SecurityReason = match.Value.Person.SecurityReason,
+                                    CaseNumber = match.Value.Person.CaseNumber,
+                                    IssuedBy = match.Value.Person.IssuedBy,
+                                    LastSeenAt = match.Value.Person.LastSeenAt,
+                                    LastSeenLocation = match.Value.Person.LastSeenLocation,
+                                    AlertInstructions = match.Value.Person.AlertInstructions,
+                                    Aliases = match.Value.Person.Aliases,
+                                    VehicleInfo = match.Value.Person.VehicleInfo,
                                 }, cancellationToken);
                             }
                         }

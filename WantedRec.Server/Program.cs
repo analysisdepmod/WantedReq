@@ -197,8 +197,6 @@ app.Lifetime.ApplicationStopping.Register(() =>
 //2
 app.Use(async (context, next) =>
 {
-
-
     await next();
 });
 ///
