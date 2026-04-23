@@ -9,11 +9,9 @@ import './App.css'
 import { RULES } from './Interfaces/roles';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import NewTab from './compontents/NewTab';
 import Home from './Home';
 import ListNews from './pages/news/ListNews';
 import PrivateRoute from './layouts/PrivateRoute';
-import ListImage from './pages/image/ListImage';
 import AnonymousLayout from './layouts/AnonymousLayout';
 import ChangePassowrd from './pages/account/changePassowrd';
 import MainLayout from './layouts/MainLayout';

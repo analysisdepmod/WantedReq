@@ -700,8 +700,26 @@ namespace WantedRec.Server.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("AlertExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AlertInstructions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("AlertIssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Aliases")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ArrestWarrantNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("BirthDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("CaseNumber")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2(0)");
@@ -709,10 +727,16 @@ namespace WantedRec.Server.Migrations
                     b.Property<string>("CreatedByUserId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int>("DangerLevel")
+                        .HasColumnType("int");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("DistinguishingMarks")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ExternalCode")
                         .HasMaxLength(50)
@@ -727,11 +751,26 @@ namespace WantedRec.Server.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("int");
 
+                    b.Property<bool>("HasActiveAlert")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsArmedAndDangerous")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("IssuedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSeenLocation")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NationalId")
                         .IsRequired()
@@ -745,11 +784,23 @@ namespace WantedRec.Server.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("SecurityNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SecurityReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SecurityStatus")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2(0)");
 
                     b.Property<string>("UpdatedByUserId")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("VehicleInfo")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("PersonId");
 

@@ -12,6 +12,13 @@
         public int FaceImagesCount { get; set; }
         public bool HasSuspectRecord { get; set; }
         public int RecognitionCount { get; set; }
-    }
 
+        // ملخص أمني
+        public PersonSecurityStatus SecurityStatus { get; set; }
+        public DangerLevel DangerLevel { get; set; }
+        public bool HasActiveAlert { get; set; }
+        public bool IsArmedAndDangerous { get; set; }
+        public DateTime? LastSeenAt { get; set; }
+        public string? LastSeenLocation { get; set; }
+    }
 }

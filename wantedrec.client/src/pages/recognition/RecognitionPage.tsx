@@ -1,36 +1,20 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import {
     Upload, Button, Card, Row, Col, Typography, Space,
-    Image, Progress, Alert, Spin, Tag, Divider,
-    Empty, Tabs, Slider, Badge, message, Select,
+    Image, Progress, Alert, Spin, Tag, Empty, message, Divider,
 } from 'antd';
 import type { UploadFile } from 'antd';
 import {
-    SearchOutlined, UploadOutlined, CameraOutlined,
+    SearchOutlined, UploadOutlined,
     CheckCircleOutlined, CloseCircleOutlined,
-    UserOutlined, EyeOutlined, StopOutlined,
-    PlayCircleOutlined, PauseCircleOutlined,
-    LinkOutlined, MonitorOutlined,
+    UserOutlined, EyeOutlined, DeleteOutlined, ClearOutlined,
 } from '@ant-design/icons';
-import type { ApiResponse } from '../../types/person.types';
 import { ValidFile } from '../../Interfaces/functions';
 import type { RecognitionFaceDto, LiveRecognitionResultDto } from '../../types/camera.types';
-import { getCameras } from '../../api/camerasApi';
 import { identifyFace } from '../../api/recognitionApi';
 
 const { Title, Text } = Typography;
-const STORAGE_KEY = 'current_device_id';
-
-// ── Helpers ─────────────────────────────────────────────
-const getCurrentDeviceId = (): number | null => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = Number(raw);
-    return Number.isNaN(parsed) ? null : parsed;
-};
 
 const scoreColor = (s: number) =>
     s >= 0.8 ? '#52c41a' : s >= 0.6 ? '#faad14' : '#ff4d4f';
@@ -38,377 +22,396 @@ const scoreColor = (s: number) =>
 const scoreLabel = (s: number) =>
     s >= 0.8 ? 'تطابق عالي' : s >= 0.6 ? 'تطابق متوسط' : 'تطابق ضعيف';
 
-// ── نتيجة مشتركة ────────────────────────────────────────
-function ResultPanel({
-    result,
-    isPending,
-    error,
-    cameraMode = false,
-    frameCount = 0,
-}: {
+type BatchImageItem = {
+    id: string;
+    file: File;
+    name: string;
+    previewUrl: string;
     result: LiveRecognitionResultDto | null;
+    error: string | null;
     isPending: boolean;
-    error?: any;
-    cameraMode?: boolean;
-    frameCount?: number;
-}) {
+};
+
+function FaceCard({ face }: { face: RecognitionFaceDto }) {
     const navigate = useNavigate();
 
     return (
+        <div
+            style={{
+                border: `1px solid ${face.isKnown ? '#b7eb8f' : '#e6eaf0'}`,
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 10,
+                background: face.isKnown ? 'var(--app-soft-green)' : 'var(--app-surface)',
+            }}
+        >
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: face.isKnown ? 10 : 0,
+                }}
+            >
+                <Space size={8} align="start">
+                    {face.isKnown ? (
+                        <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 15, marginTop: 2 }} />
+                    ) : (
+                        <CloseCircleOutlined style={{ color: 'var(--app-muted)', fontSize: 15, marginTop: 2 }} />
+                    )}
+
+                    <div>
+                        <Text strong style={{ fontSize: 13, display: 'block' }}>
+                            {face.isKnown ? face.name : 'وجه غير معروف'}
+                        </Text>
+
+                        {face.isKnown && (
+                            <Text style={{ color: scoreColor(face.score), fontSize: 11 }}>
+                                {scoreLabel(face.score)} — {Math.round(face.score * 100)}%
+                            </Text>
+                        )}
+                    </div>
+                </Space>
+
+                {face.isKnown && face.person && (
+                    <Button
+                        size="small"
+                        type="link"
+                        icon={<EyeOutlined />}
+                        onClick={() => navigate(`/persons/${face.person!.personId}`)}
+                    >
+                        الملف
+                    </Button>
+                )}
+            </div>
+
+            {face.isKnown && face.person && (
+                <Row gutter={8} align="middle">
+                    {face.primaryImageBase64 && (
+                        <Col span={6}>
+                            <Image
+                                src={`data:image/jpeg;base64,${face.primaryImageBase64}`}
+                                style={{
+                                    width: 60,
+                                    height: 60,
+                                    objectFit: 'cover',
+                                    borderRadius: 6,
+                                    border: `2px solid ${scoreColor(face.score)}`,
+                                }}
+                                preview={false}
+                            />
+                        </Col>
+                    )}
+
+                    <Col span={face.primaryImageBase64 ? 18 : 24}>
+                        <div>
+                            <Text type="secondary" style={{ fontSize: 11 }}>الهوية: </Text>
+                            <Text style={{ fontSize: 12 }}>{face.person.nationalId || '—'}</Text>
+                        </div>
+
+                        <div>
+                            <Text type="secondary" style={{ fontSize: 11 }}>الحالة: </Text>
+                            <Tag color={face.person.isActive ? 'green' : 'red'} style={{ fontSize: 11 }}>
+                                {face.person.isActive ? 'نشط' : 'غير نشط'}
+                            </Tag>
+                        </div>
+
+                        {face.person.hasSuspectRecord && (
+                            <Tag color="red" style={{ marginTop: 4, fontSize: 11 }}>
+                                ⚠️ مشتبه به
+                            </Tag>
+                        )}
+
+                        <Progress
+                            percent={Math.round(face.score * 100)}
+                            strokeColor={scoreColor(face.score)}
+                            size="small"
+                            style={{ marginTop: 4 }}
+                        />
+                    </Col>
+                </Row>
+            )}
+        </div>
+    );
+}
+
+function SingleImageResultCard({
+    item,
+    index,
+}: {
+    item: BatchImageItem;
+    index: number;
+}) {
+    return (
         <Card
+            size="small"
             title={
                 <Space>
-                    <span>نتيجة التعرف</span>
-                    {result && (
-                        <Tag color={result.knownFaces > 0 ? 'success' : 'default'}>
-                            {result.knownFaces}/{result.totalFaces} وجه
+                    <span>الصورة {index + 1}</span>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{item.name}</Text>
+                    {item.result && (
+                        <Tag color={item.result.knownFaces > 0 ? 'success' : 'default'}>
+                            {item.result.knownFaces}/{item.result.totalFaces}
                         </Tag>
                     )}
-                    {cameraMode && frameCount > 0 && (
-                        <Tag color="blue">{frameCount} فريم</Tag>
-                    )}
+                    {item.isPending && <Tag color="processing">جارٍ التحليل</Tag>}
+                    {item.error && <Tag color="error">فشل</Tag>}
                 </Space>
             }
-            style={{ height: '100%' }}
+            style={{ marginBottom: 16 }}
         >
-            {isPending && !cameraMode && (
-                <div style={{ textAlign: 'center', padding: 60 }}>
-                    <Spin size="large" />
-                    <br />
-                    <br />
-                    <Text type="secondary">جاري تحليل الصورة...</Text>
-                </div>
-            )}
+            <Row gutter={16}>
+                <Col xs={24} md={8}>
+                    <Image
+                        src={item.previewUrl}
+                        style={{
+                            width: '100%',
+                            maxHeight: 220,
+                            objectFit: 'cover',
+                            borderRadius: 8,
+                        }}
+                    />
+                </Col>
 
-            {error && !isPending && (
-                <Alert
-                    type="error"
-                    showIcon
-                    message="فشل التعرف"
-                    description="تأكد من وضوح الصورة وحاول مجدداً"
-                />
-            )}
-
-            {!isPending && !error && !result && (
-                <Empty
-                    image={<UserOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />}
-                    description={
-                        cameraMode
-                            ? 'اضغط "بدء التعرف المستمر"'
-                            : 'ارفع صورة واضغط بحث'
-                    }
-                />
-            )}
-
-            {result && (
-                <>
-                    <Row gutter={12} style={{ marginBottom: 16 }}>
-                        <Col span={12}>
-                            <Card size="small" style={{ textAlign: 'center', background: '#f0f5ff' }}>
-                                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1677ff' }}>
-                                    {result.totalFaces}
-                                </div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>وجه مكتشف</Text>
-                            </Card>
-                        </Col>
-
-                        <Col span={12}>
-                            <Card
-                                size="small"
-                                style={{
-                                    textAlign: 'center',
-                                    background: result.knownFaces > 0 ? '#f6ffed' : '#fff7e6',
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        fontSize: 24,
-                                        fontWeight: 'bold',
-                                        color: result.knownFaces > 0 ? '#52c41a' : '#faad14',
-                                    }}
-                                >
-                                    {result.knownFaces}
-                                </div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>تم التعرف</Text>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    {result.faces.length === 0 && (
-                        <Alert type="warning" showIcon message="لم يتم كشف أي وجه في الصورة" />
+                <Col xs={24} md={16}>
+                    {item.isPending && (
+                        <div style={{ textAlign: 'center', padding: 30 }}>
+                            <Spin />
+                            <br />
+                            <br />
+                            <Text type="secondary">جاري تحليل هذه الصورة...</Text>
+                        </div>
                     )}
 
-                    {result.faces.map((face, idx) => (
-                        <Card
-                            key={idx}
-                            size="small"
-                            style={{
-                                marginBottom: 10,
-                                borderColor: face.isKnown ? '#52c41a' : '#d9d9d9',
-                                background: face.isKnown ? '#f6ffed' : '#fafafa',
-                            }}
-                            title={
-                                <Space>
-                                    {face.isKnown
-                                        ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                                        : <CloseCircleOutlined style={{ color: 'var(--app-muted)' }} />}
-                                    <Text strong style={{ fontSize: 13 }}>
-                                        {face.isKnown ? face.name : 'وجه غير معروف'}
-                                    </Text>
-                                    {face.isKnown && (
-                                        <Tag color={scoreColor(face.score)} style={{ fontSize: 11 }}>
-                                            {scoreLabel(face.score)} — {Math.round(face.score * 100)}%
-                                        </Tag>
-                                    )}
-                                </Space>
-                            }
-                            extra={
-                                face.isKnown && face.person && (
-                                    <Button
+                    {!item.isPending && item.error && (
+                        <Alert
+                            type="error"
+                            showIcon
+                            message="فشل التعرف"
+                            description={item.error}
+                        />
+                    )}
+
+                    {!item.isPending && !item.error && !item.result && (
+                        <Empty description="بانتظار المعالجة" />
+                    )}
+
+                    {item.result && (
+                        <>
+                            <Row gutter={12} style={{ marginBottom: 16 }}>
+                                <Col span={12}>
+                                    <Card size="small" style={{ textAlign: 'center', background: '#f0f5ff' }}>
+                                        <div style={{ fontSize: 22, fontWeight: 'bold', color: '#1677ff' }}>
+                                            {item.result.totalFaces}
+                                        </div>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>وجه مكتشف</Text>
+                                    </Card>
+                                </Col>
+
+                                <Col span={12}>
+                                    <Card
                                         size="small"
-                                        type="link"
-                                        icon={<EyeOutlined />}
-                                        onClick={() => navigate(`/persons/${face.person!.personId}`)}
+                                        style={{
+                                            textAlign: 'center',
+                                            background: item.result.knownFaces > 0 ? '#f6ffed' : '#fff7e6',
+                                        }}
                                     >
-                                        الملف
-                                    </Button>
-                                )
-                            }
-                        >
-                            {face.isKnown && face.person && (
-                                <Row gutter={8} align="middle">
-                                    {face.primaryImageBase64 && (
-                                        <Col span={6}>
-                                            <Image
-                                                src={`data:image/jpeg;base64,${face.primaryImageBase64}`}
-                                                style={{
-                                                    width: 60,
-                                                    height: 60,
-                                                    objectFit: 'cover',
-                                                    borderRadius: 6,
-                                                    border: `2px solid ${scoreColor(face.score)}`,
-                                                }}
-                                            />
-                                        </Col>
-                                    )}
-
-                                    <Col span={face.primaryImageBase64 ? 18 : 24}>
-                                        <div>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>الهوية: </Text>
-                                            <Text style={{ fontSize: 12 }}>{face.person.nationalId || '—'}</Text>
+                                        <div
+                                            style={{
+                                                fontSize: 22,
+                                                fontWeight: 'bold',
+                                                color: item.result.knownFaces > 0 ? '#52c41a' : '#faad14',
+                                            }}
+                                        >
+                                            {item.result.knownFaces}
                                         </div>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>تم التعرف</Text>
+                                    </Card>
+                                </Col>
+                            </Row>
 
-                                        <div>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>الحالة: </Text>
-                                            <Tag color={face.person.isActive ? 'green' : 'red'} style={{ fontSize: 11 }}>
-                                                {face.person.isActive ? 'نشط' : 'غير نشط'}
-                                            </Tag>
-                                        </div>
-
-                                        {face.person.hasSuspectRecord && (
-                                            <Tag color="red" style={{ marginTop: 4, fontSize: 11 }}>
-                                                ⚠️ مشتبه به
-                                            </Tag>
-                                        )}
-
-                                        <Progress
-                                            percent={Math.round(face.score * 100)}
-                                            strokeColor={scoreColor(face.score)}
-                                            size="small"
-                                            style={{ marginTop: 4 }}
-                                        />
-                                    </Col>
-                                </Row>
+                            {item.result.faces.length === 0 && (
+                                <Alert type="warning" showIcon message="لم يتم كشف أي وجه في الصورة" />
                             )}
-                        </Card>
-                    ))}
-                </>
-            )}
+
+                            {item.result.faces.map((face, idx) => (
+                                <FaceCard key={`${item.id}-face-${idx}`} face={face} />
+                            ))}
+                        </>
+                    )}
+                </Col>
+            </Row>
         </Card>
     );
 }
 
-// ── RecognitionPage ─────────────────────────────────────
 export default function RecognitionPage() {
-    const navigate = useNavigate();
     const [messageApi, contextHolder] = message.useMessage();
-    const [activeTab, setActiveTab] = useState('upload');
-    const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
+    const [items, setItems] = useState<BatchImageItem[]>([]);
+    const [isBatchRunning, setIsBatchRunning] = useState(false);
+    const [processedCount, setProcessedCount] = useState(0);
 
-    // ── Upload State ─────────────────────────────────────
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [capturedFile, setCapturedFile] = useState<File | null>(null);
-    const [uploadResult, setUploadResult] = useState<LiveRecognitionResultDto | null>(null);
+    const totalCount = items.length;
 
-    const { data: cameras = [] } = useQuery({
-        queryKey: ['cameras', currentDeviceId, true],
-        queryFn: () => getCameras({ isActive: true }),
-    });
+    const completedCount = useMemo(
+        () => items.filter(x => x.result || x.error).length,
+        [items]
+    );
 
-    const {
-        mutate: runUploadIdentify,
-        isPending: uploadPending,
-        error: uploadError,
-        reset: uploadReset,
-    } = useMutation({
-        mutationFn: () => identifyFace(capturedFile!),
-        onSuccess: (data) => setUploadResult(data),
-        onError: () => messageApi.error('فشل التعرف'),
-    });
+    const successCount = useMemo(
+        () => items.filter(x => x.result !== null).length,
+        [items]
+    );
+
+    const recognizedCount = useMemo(
+        () => items.reduce((sum, x) => sum + (x.result?.knownFaces ?? 0), 0),
+        [items]
+    );
+
+    const progressPercent = totalCount > 0
+        ? Math.round((processedCount / totalCount) * 100)
+        : 0;
+
+    const addFiles = (incomingFiles: File[]) => {
+        const validFiles: File[] = [];
+
+        for (const file of incomingFiles) {
+            if (ValidFile && ValidFile(file) === false) {
+                messageApi.error(`الملف غير صالح: ${file.name}`);
+                continue;
+            }
+            validFiles.push(file);
+        }
+
+        if (validFiles.length === 0) return;
+
+        setItems(prev => {
+            const existingKeys = new Set(
+                prev.map(x => `${x.file.name}__${x.file.size}__${x.file.lastModified}`)
+            );
+
+            const next = [...prev];
+
+            for (const file of validFiles) {
+                const key = `${file.name}__${file.size}__${file.lastModified}`;
+                if (existingKeys.has(key)) continue;
+
+                next.push({
+                    id: `${Date.now()}-${Math.random()}-${file.name}`,
+                    file,
+                    name: file.name,
+                    previewUrl: URL.createObjectURL(file),
+                    result: null,
+                    error: null,
+                    isPending: false,
+                });
+            }
+
+            return next;
+        });
+    };
 
     const handleUpload = (file: File): false => {
-        if (ValidFile && ValidFile(file) === false) {
-            messageApi.error('الملف غير صالح');
-            return false;
-        }
-
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
-        }
-
-        setPreviewUrl(URL.createObjectURL(file));
-        setCapturedFile(file);
-        setUploadResult(null);
-        uploadReset();
+        addFiles([file]);
         return false;
     };
 
-    // ── Live Camera State ────────────────────────────────
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const isRunning = useRef(false);
+    const handleRemoveItem = (id: string) => {
+        if (isBatchRunning) return;
 
-    const [cameraOn, setCameraOn] = useState(false);
-    const [liveOn, setLiveOn] = useState(false);
-    const [intervalSec, setIntervalSec] = useState(2);
-    const [liveResult, setLiveResult] = useState<LiveRecognitionResultDto | null>(null);
-    const [livePending, setLivePending] = useState(false);
-    const [frameCount, setFrameCount] = useState(0);
-    const [cameraId, setCameraId] = useState<number | undefined>(undefined);
-
-    useEffect(() => {
-        const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
-
-        window.addEventListener('storage', syncDevice);
-        window.addEventListener('focus', syncDevice);
-
-        return () => {
-            window.removeEventListener('storage', syncDevice);
-            window.removeEventListener('focus', syncDevice);
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-        };
-    }, [previewUrl]);
-
-    useEffect(() => {
-        if (!cameraId && cameras.length > 0) {
-            setCameraId(cameras[0].cameraId);
-        }
-    }, [cameras, cameraId]);
-
-    // ── Capture & Identify ───────────────────────────────
-    const captureAndIdentify = useCallback(async () => {
-        if (isRunning.current) return;
-
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!video || !canvas || video.readyState < 2) return;
-
-        isRunning.current = true;
-        setLivePending(true);
-
-        try {
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            canvas.getContext('2d')?.drawImage(video, 0, 0);
-
-            const blob = await new Promise<Blob | null>((res) =>
-                canvas.toBlob(res, 'image/jpeg', 0.85)
-            );
-            if (!blob) return;
-
-            const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
-            const data = await identifyFace(file, cameraId);
-
-            setLiveResult(data);
-            setFrameCount((c) => c + 1);
-        } catch {
-            // تجاهل أخطاء الـ live
-        } finally {
-            isRunning.current = false;
-            setLivePending(false);
-        }
-    }, [cameraId]);
-
-    // ── Camera Controls ──────────────────────────────────
-    const startCamera = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            streamRef.current = stream;
-            setCameraOn(true);
-
-            setTimeout(() => {
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    videoRef.current.play().catch(console.error);
-                }
-            }, 50);
-        } catch {
-            messageApi.error('لم يتم السماح بالوصول للكاميرا');
-        }
+        setItems(prev => {
+            const target = prev.find(x => x.id === id);
+            if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+            return prev.filter(x => x.id !== id);
+        });
     };
 
-    const stopLive = useCallback(() => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
-        setLiveOn(false);
-        isRunning.current = false;
-        setLivePending(false);
-    }, []);
+    const handleClearAll = () => {
+        if (isBatchRunning) return;
 
-    const stopCamera = useCallback(() => {
-        stopLive();
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        setCameraOn(false);
-        setLiveResult(null);
-    }, [stopLive]);
+        items.forEach(x => {
+            if (x.previewUrl) URL.revokeObjectURL(x.previewUrl);
+        });
 
-    const startLive = useCallback(() => {
-        if (!cameraOn) return;
+        setItems([]);
+        setProcessedCount(0);
+    };
 
-        if (!cameraId) {
-            messageApi.warning('اختر الكاميرا أولًا');
+    const resetResultsOnly = () => {
+        if (isBatchRunning) return;
+
+        setItems(prev =>
+            prev.map(x => ({
+                ...x,
+                result: null,
+                error: null,
+                isPending: false,
+            }))
+        );
+        setProcessedCount(0);
+    };
+
+    const runBatchIdentify = async () => {
+        if (items.length === 0) {
+            messageApi.warning('اختر صورة واحدة أو أكثر أولًا');
             return;
         }
 
-        setLiveOn(true);
-        setFrameCount(0);
-        captureAndIdentify();
-        intervalRef.current = setInterval(captureAndIdentify, intervalSec * 1000);
-    }, [cameraOn, cameraId, intervalSec, captureAndIdentify, messageApi]);
+        setIsBatchRunning(true);
+        setProcessedCount(0);
 
-    useEffect(() => {
-        if (liveOn) {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            intervalRef.current = setInterval(captureAndIdentify, intervalSec * 1000);
+        setItems(prev =>
+            prev.map(x => ({
+                ...x,
+                result: null,
+                error: null,
+                isPending: false,
+            }))
+        );
+
+        for (const item of items) {
+            setItems(prev =>
+                prev.map(x =>
+                    x.id === item.id ? { ...x, isPending: true, error: null, result: null } : x
+                )
+            );
+
+            try {
+                const data = await identifyFace(item.file);
+
+                setItems(prev =>
+                    prev.map(x =>
+                        x.id === item.id ? { ...x, result: data, error: null, isPending: false } : x
+                    )
+                );
+            } catch {
+                setItems(prev =>
+                    prev.map(x =>
+                        x.id === item.id
+                            ? {
+                                ...x,
+                                error: 'تعذر تحليل هذه الصورة. تأكد من وضوحها ثم حاول مجددًا.',
+                                isPending: false,
+                            }
+                            : x
+                    )
+                );
+            } finally {
+                setProcessedCount(c => c + 1);
+            }
         }
-    }, [intervalSec, captureAndIdentify, liveOn]);
+
+        setIsBatchRunning(false);
+        messageApi.success('اكتملت معالجة الصور');
+    };
 
     useEffect(() => {
         return () => {
-            stopLive();
-            streamRef.current?.getTracks().forEach((t) => t.stop());
+            items.forEach(x => {
+                if (x.previewUrl) URL.revokeObjectURL(x.previewUrl);
+            });
         };
-    }, [stopLive]);
-
-    const handleTabChange = (key: string) => {
-        setActiveTab(key);
-        if (key !== 'live') stopCamera();
-    };
+    }, [items]);
 
     return (
         <div
@@ -421,313 +424,182 @@ export default function RecognitionPage() {
             }}
         >
             {contextHolder}
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-            {!currentDeviceId && (
-                <Alert
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    message="لم يتم اختيار الجهاز الحالي"
-                    description={
-                        <Space direction="vertical" size={8}>
-                            <Text>
-                                إذا كنت تريد التعرف المباشر أو الكامرات المحلية الخاصة بهذا الجهاز، افتح صفحة المراقبة أولًا وحدد الجهاز الحالي.
-                            </Text>
-                            <Button
-                                size="small"
-                                type="primary"
-                                icon={<MonitorOutlined />}
-                                onClick={() => navigate('/cameras/monitor')}
-                                style={{ width: 'fit-content' }}
-                            >
-                                فتح صفحة اختيار الجهاز
-                            </Button>
-                        </Space>
-                    }
-                />
-            )}
 
             <Space align="center" style={{ marginBottom: 24, flexWrap: 'wrap' }}>
                 <SearchOutlined style={{ fontSize: 28, color: '#1677ff' }} />
-                <Title level={3} style={{ margin: 0 }}>التعرف على الوجه</Title>
-
-                {liveOn && (
-                    <Badge
-                        status="processing"
-                        text={<Text type="success">Live — {frameCount} فريم</Text>}
-                    />
-                )}
-
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                    <LinkOutlined style={{ marginLeft: 4 }} />
-                    الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
-                </Text>
+                <Title level={3} style={{ margin: 0 }}>التعرف على الوجه من الصور</Title>
             </Space>
 
-            <Tabs
-                activeKey={activeTab}
-                onChange={handleTabChange}
-                size="large"
-                items={[
-                    {
-                        key: 'upload',
-                        label: <Space><UploadOutlined />رفع صورة</Space>,
-                        children: (
-                            <Row gutter={24}>
-                                <Col xs={24} lg={10}>
-                                    <Card title="الصورة">
-                                        {previewUrl ? (
-                                            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                                                <Image
-                                                    src={previewUrl}
-                                                    style={{
-                                                        width: '100%',
-                                                        maxHeight: 280,
-                                                        objectFit: 'cover',
-                                                        borderRadius: 8,
-                                                    }}
-                                                />
-                                            </div>
-                                        ) : (
+            <Row gutter={24}>
+                <Col xs={24} lg={8}>
+                    <Card title="الصور المختارة">
+                        {items.length === 0 ? (
+                            <div
+                                style={{
+                                    height: 220,
+                                    border: '2px dashed var(--app-border)',
+                                    borderRadius: 8,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: 16,
+                                    background: 'var(--app-surface-2)',
+                                }}
+                            >
+                                <UploadOutlined
+                                    style={{
+                                        fontSize: 48,
+                                        color: 'var(--app-muted)',
+                                        marginBottom: 8,
+                                    }}
+                                />
+                                <Text type="secondary">اختر صورة أو مجموعة صور</Text>
+                            </div>
+                        ) : (
+                            <div style={{ marginBottom: 16 }}>
+                                <Row gutter={[8, 8]}>
+                                    {items.map((item) => (
+                                        <Col span={8} key={item.id}>
                                             <div
                                                 style={{
-                                                    height: 200,
-                                                    border: '2px dashed var(--app-border)',
+                                                    position: 'relative',
+                                                    border: '1px solid var(--app-border)',
                                                     borderRadius: 8,
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: 16,
-                                                    background: 'var(--app-surface-2)',
+                                                    overflow: 'hidden',
+                                                    background: 'var(--app-surface)',
                                                 }}
                                             >
-                                                <UploadOutlined
+                                                <Image
+                                                    src={item.previewUrl}
+                                                    preview={false}
                                                     style={{
-                                                        fontSize: 48,
-                                                        color: 'var(--app-muted)',
-                                                        marginBottom: 8,
+                                                        width: '100%',
+                                                        height: 90,
+                                                        objectFit: 'cover',
+                                                        display: 'block',
                                                     }}
                                                 />
-                                                <Text type="secondary">اختر صورة</Text>
-                                            </div>
-                                        )}
-
-                                        <Upload<UploadFile>
-                                            accept="image/*"
-                                            showUploadList={false}
-                                            beforeUpload={(f) => handleUpload(f as unknown as File)}
-                                        >
-                                            <Button icon={<UploadOutlined />} block style={{ marginBottom: 12 }}>
-                                                {previewUrl ? 'تغيير الصورة' : 'اختيار صورة'}
-                                            </Button>
-                                        </Upload>
-
-                                        <Button
-                                            type="primary"
-                                            icon={<SearchOutlined />}
-                                            onClick={() => runUploadIdentify()}
-                                            loading={uploadPending}
-                                            disabled={!capturedFile}
-                                            block
-                                            size="large"
-                                        >
-                                            {uploadPending ? 'جاري البحث...' : 'ابحث عن الشخص'}
-                                        </Button>
-
-                                        <div style={{ marginTop: 8 }}>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                📌 تأكد أن الصورة تحتوي على وجه واضح
-                                            </Text>
-                                        </div>
-                                    </Card>
-                                </Col>
-
-                                <Col xs={24} lg={14}>
-                                    <ResultPanel
-                                        result={uploadResult}
-                                        isPending={uploadPending}
-                                        error={uploadError}
-                                    />
-                                </Col>
-                            </Row>
-                        ),
-                    },
-                    {
-                        key: 'live',
-                        label: <Space><PlayCircleOutlined />تعرف مباشر</Space>,
-                        children: (
-                            <Row gutter={24}>
-                                <Col xs={24} lg={12}>
-                                    <Card
-                                        title={
-                                            <Space>
-                                                <CameraOutlined />
-                                                <span>الكاميرا</span>
-                                                {livePending && <Badge status="processing" text="يحلل..." />}
-                                            </Space>
-                                        }
-                                    >
-                                        <div
-                                            style={{
-                                                background: 'var(--app-video-bg)',
-                                                borderRadius: 8,
-                                                overflow: 'hidden',
-                                                marginBottom: 16,
-                                                minHeight: 240,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                position: 'relative',
-                                            }}
-                                        >
-                                            <video
-                                                ref={videoRef}
-                                                autoPlay
-                                                playsInline
-                                                muted
-                                                style={{
-                                                    width: '100%',
-                                                    display: cameraOn ? 'block' : 'none',
-                                                }}
-                                            />
-
-                                            {liveOn && (
-                                                <div
+                                                <Button
+                                                    size="small"
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={() => handleRemoveItem(item.id)}
+                                                    disabled={isBatchRunning}
                                                     style={{
                                                         position: 'absolute',
-                                                        top: 8,
-                                                        right: 8,
-                                                        background: livePending ? '#ff4d4f' : '#52c41a',
-                                                        borderRadius: '50%',
-                                                        width: 12,
-                                                        height: 12,
-                                                        boxShadow: `0 0 6px ${livePending ? '#ff4d4f' : '#52c41a'}`,
+                                                        top: 4,
+                                                        left: 4,
+                                                        borderRadius: 6,
                                                     }}
                                                 />
-                                            )}
+                                            </div>
+                                        </Col>
+                                    ))}
+                                </Row>
+                            </div>
+                        )}
 
-                                            {!cameraOn && (
-                                                <div style={{ textAlign: 'center', padding: 40 }}>
-                                                    <CameraOutlined
-                                                        style={{
-                                                            fontSize: 56,
-                                                            color: 'var(--app-muted)',
-                                                            marginBottom: 12,
-                                                        }}
-                                                    />
-                                                    <br />
-                                                    <Text style={{ color: 'var(--app-muted)' }}>
-                                                        افتح الكاميرا للبدء
-                                                    </Text>
-                                                </div>
-                                            )}
-                                        </div>
+                        <Upload<UploadFile>
+                            accept="image/*"
+                            multiple
+                            showUploadList={false}
+                            beforeUpload={(f) => handleUpload(f as unknown as File)}
+                        >
+                            <Button icon={<UploadOutlined />} block style={{ marginBottom: 12 }}>
+                                {items.length > 0 ? 'إضافة صور أخرى' : 'اختيار صور'}
+                            </Button>
+                        </Upload>
 
-                                        <div style={{ marginBottom: 12 }}>
-                                            <Space wrap>
-                                                <Text strong>الكاميرا المرتبطة:</Text>
-                                                <Select
-                                                    value={cameraId}
-                                                    onChange={setCameraId}
-                                                    disabled={liveOn}
-                                                    options={cameras.map(c => ({
-                                                        value: c.cameraId,
-                                                        label: `${c.name}${c.area ? ` — ${c.area}` : ''}`,
-                                                    }))}
-                                                    style={{ width: 260 }}
-                                                    placeholder="اختر كاميرا"
-                                                />
-                                            </Space>
-                                        </div>
+                        <Button
+                            type="primary"
+                            icon={<SearchOutlined />}
+                            onClick={runBatchIdentify}
+                            loading={isBatchRunning}
+                            disabled={items.length === 0}
+                            block
+                            size="large"
+                        >
+                            {isBatchRunning ? 'جاري تحليل الصور...' : 'ابدأ التعرف على كل الصور'}
+                        </Button>
 
-                                        <Space direction="vertical" style={{ width: '100%' }}>
-                                            {!cameraOn ? (
-                                                <Button
-                                                    icon={<CameraOutlined />}
-                                                    block
-                                                    size="large"
-                                                    onClick={startCamera}
-                                                >
-                                                    فتح الكاميرا
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    danger
-                                                    icon={<StopOutlined />}
-                                                    block
-                                                    size="large"
-                                                    onClick={stopCamera}
-                                                    disabled={liveOn}
-                                                >
-                                                    إغلاق الكاميرا
-                                                </Button>
-                                            )}
+                        <Space style={{ marginTop: 12, width: '100%' }} direction="vertical">
+                            <Button
+                                icon={<ClearOutlined />}
+                                onClick={resetResultsOnly}
+                                disabled={items.length === 0 || isBatchRunning}
+                                block
+                            >
+                                تصفير النتائج فقط
+                            </Button>
 
-                                            {cameraOn && (
-                                                !liveOn ? (
-                                                    <Button
-                                                        type="primary"
-                                                        icon={<PlayCircleOutlined />}
-                                                        block
-                                                        size="large"
-                                                        onClick={startLive}
-                                                        style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                                                    >
-                                                        بدء التعرف المستمر
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        icon={<PauseCircleOutlined />}
-                                                        block
-                                                        size="large"
-                                                        onClick={stopLive}
-                                                        danger
-                                                    >
-                                                        إيقاف التعرف
-                                                    </Button>
-                                                )
-                                            )}
-                                        </Space>
+                            <Button
+                                danger
+                                onClick={handleClearAll}
+                                disabled={items.length === 0 || isBatchRunning}
+                                block
+                            >
+                                حذف كل الصور
+                            </Button>
+                        </Space>
 
-                                        <Divider />
+                        <Divider />
 
-                                        <div>
-                                            <Space style={{ marginBottom: 8 }}>
-                                                <Text strong>فترة الإرسال:</Text>
-                                                <Tag color="blue">{intervalSec} ثانية</Tag>
-                                            </Space>
+                        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                            <div>
+                                <Text strong>التقدم العام</Text>
+                                <Progress percent={progressPercent} />
+                            </div>
 
-                                            <Slider
-                                                min={1}
-                                                max={10}
-                                                step={1}
-                                                value={intervalSec}
-                                                onChange={(v) => setIntervalSec(v as number)}
-                                                marks={{ 1: '1s', 2: '2s', 3: '3s', 5: '5s', 10: '10s' }}
-                                            />
-
-                                            <Text type="secondary" style={{ fontSize: 11 }}>
-                                                💡 CPU عادي → 2-3s | CPU قوي → 1s | جهاز ضعيف → 5s+
-                                            </Text>
-                                        </div>
+                            <Row gutter={8}>
+                                <Col span={8}>
+                                    <Card size="small" style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 20, fontWeight: 700 }}>{totalCount}</div>
+                                        <Text type="secondary" style={{ fontSize: 11 }}>المجموع</Text>
                                     </Card>
                                 </Col>
-
-                                <Col xs={24} lg={12}>
-                                    <ResultPanel
-                                        result={liveResult}
-                                        isPending={livePending}
-                                        cameraMode
-                                        frameCount={frameCount}
-                                    />
+                                <Col span={8}>
+                                    <Card size="small" style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 20, fontWeight: 700, color: '#1677ff' }}>{completedCount}</div>
+                                        <Text type="secondary" style={{ fontSize: 11 }}>المعالج</Text>
+                                    </Card>
+                                </Col>
+                                <Col span={8}>
+                                    <Card size="small" style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 20, fontWeight: 700, color: '#52c41a' }}>{recognizedCount}</div>
+                                        <Text type="secondary" style={{ fontSize: 11 }}>المعروف</Text>
+                                    </Card>
                                 </Col>
                             </Row>
-                        ),
-                    },
-                ]}
-            />
+
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                📌 يتم إرسال الصور إلى السيرفر واحدة واحدة بالتسلسل
+                            </Text>
+                        </Space>
+                    </Card>
+                </Col>
+
+                <Col xs={24} lg={16}>
+                    <Card title="نتائج التعرف">
+                        {items.length === 0 ? (
+                            <Empty
+                                image={<UserOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />}
+                                description="اختر صورة أو عدة صور ثم ابدأ التعرف"
+                            />
+                        ) : (
+                            <>
+                                {items.map((item, index) => (
+                                    <SingleImageResultCard
+                                        key={item.id}
+                                        item={item}
+                                        index={index}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
         </div>
     );
 }

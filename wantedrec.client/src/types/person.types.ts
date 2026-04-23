@@ -1,8 +1,14 @@
 ﻿// ── Enums (تطابق C# Enums) ──────────────────────────────
+import type { TagProps } from 'antd';
 export enum Gender {
     Male = 1,
     Female = 2,
 }
+
+export const GenderLabel: Record<Gender, string> = {
+    [Gender.Male]: 'ذكر',
+    [Gender.Female]: 'أنثى',
+};
 
 export enum ImageSource {
     Manual = 1,
@@ -31,6 +37,58 @@ export enum HairLength { Short = 1, Medium = 2, Long = 3 }
 export enum HairColor { Black = 1, Brown = 2, Blonde = 3, Red = 4, Grey = 5, White = 6 }
 export enum GlassesType { None = 1, Regular = 2, Sunglasses = 3 }
 export enum HeadCoverType { None = 1, Hat = 2, Cap = 3, Hijab = 4, Turban = 5 }
+
+// ── Security Enums (الجديدة) ────────────────────────────
+export enum PersonSecurityStatus {
+    Normal = 0,
+    Suspect = 1,
+    Wanted = 2,
+    WantedAndSuspect = 3,
+    Arrested = 4,
+    Closed = 5,
+}
+
+export enum DangerLevel {
+    None = 0,
+    Low = 1,
+    Medium = 2,
+    High = 3,
+    Critical = 4,
+}
+
+export const PersonSecurityStatusLabel: Record<PersonSecurityStatus, string> = {
+    [PersonSecurityStatus.Normal]: 'طبيعي',
+    [PersonSecurityStatus.Suspect]: 'مشتبه به',
+    [PersonSecurityStatus.Wanted]: 'مطلوب',
+    [PersonSecurityStatus.WantedAndSuspect]: 'مطلوب ومشتبه به',
+    [PersonSecurityStatus.Arrested]: 'مقبوض عليه',
+    [PersonSecurityStatus.Closed]: 'مغلق',
+};
+export const PersonSecurityStatusColor: Record<PersonSecurityStatus, TagProps['color']> = {
+    [PersonSecurityStatus.Normal]: 'default',
+    [PersonSecurityStatus.Suspect]: 'warning',
+    [PersonSecurityStatus.Wanted]: 'error',
+    [PersonSecurityStatus.WantedAndSuspect]: 'processing',
+    [PersonSecurityStatus.Arrested]: 'success',
+    [PersonSecurityStatus.Closed]: 'default',
+};
+
+
+export const DangerLevelLabel: Record<DangerLevel, string> = {
+    [DangerLevel.None]: 'لا يوجد',
+    [DangerLevel.Low]: 'منخفض',
+    [DangerLevel.Medium]: 'متوسط',
+    [DangerLevel.High]: 'عالي',
+    [DangerLevel.Critical]: 'حرج',
+};
+
+export const DangerLevelColor: Record<DangerLevel, TagProps['color']> = {
+    [DangerLevel.None]: 'default',
+    [DangerLevel.Low]: 'success',
+    [DangerLevel.Medium]: 'warning',
+    [DangerLevel.High]: 'processing',
+    [DangerLevel.Critical]: 'error',
+};
 
 // ── DTOs ────────────────────────────────────────────────
 
@@ -68,8 +126,6 @@ export interface PersonFaceImageUpsertDto {
     specialMarks?: string | null;
     descriptionNotes?: string | null;
 }
- 
- 
 
 export interface PersonUpsertDto {
     personId?: number | null;
@@ -83,6 +139,26 @@ export interface PersonUpsertDto {
     address?: string | null;
     notes?: string | null;
     isActive: boolean;
+
+    // الحقول الأمنية الجديدة
+    securityStatus?: PersonSecurityStatus | null;
+    dangerLevel?: DangerLevel | null;
+    hasActiveAlert?: boolean;
+    isArmedAndDangerous?: boolean;
+    securityReason?: string | null;
+    caseNumber?: string | null;
+    issuedBy?: string | null;
+    arrestWarrantNumber?: string | null;
+    alertIssuedAt?: string | null;
+    alertExpiresAt?: string | null;
+    lastSeenAt?: string | null;
+    lastSeenLocation?: string | null;
+    distinguishingMarks?: string | null;
+    aliases?: string | null;
+    vehicleInfo?: string | null;
+    securityNotes?: string | null;
+    alertInstructions?: string | null;
+
     faceImages?: PersonFaceImageUpsertDto[];
 }
 
@@ -125,6 +201,27 @@ export interface PersonDetailDto {
     address?: string;
     notes?: string;
     isActive: boolean;
+    isDeleted?: boolean;
+
+    // الحقول الأمنية الجديدة
+    securityStatus: PersonSecurityStatus;
+    dangerLevel: DangerLevel;
+    hasActiveAlert?: boolean;
+    isArmedAndDangerous?: boolean;
+    securityReason?: string;
+    caseNumber?: string;
+    issuedBy?: string;
+    arrestWarrantNumber?: string;
+    alertIssuedAt?: string;
+    alertExpiresAt?: string;
+    lastSeenAt?: string;
+    lastSeenLocation?: string;
+    distinguishingMarks?: string;
+    aliases?: string;
+    vehicleInfo?: string;
+    securityNotes?: string;
+    alertInstructions?: string;
+
     suspect?: SuspectSummaryDto;
     faceImages: PersonFaceImageDto[];
     totalRecognitions: number;
@@ -141,7 +238,15 @@ export interface PersonListItemDto {
     isDeleted: boolean;
     faceImagesCount: number;
     hasSuspectRecord: boolean;
-    recognitionCount: number;  
+    recognitionCount: number;
+
+    // الحقول الأمنية الجديدة
+    securityStatus: PersonSecurityStatus;
+    dangerLevel: DangerLevel;
+    hasActiveAlert?: boolean;
+    isArmedAndDangerous?: boolean;
+    lastSeenAt?: string;
+    lastSeenLocation?: string;
 }
 
 // ── API Response Wrapper ─────────────────────────────────

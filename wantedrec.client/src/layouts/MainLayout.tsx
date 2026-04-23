@@ -258,7 +258,7 @@ export default function MainLayout() {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <img
-                            src="/Raj1.png"
+                            src="/logo.png"
                             height={44}
                             width={44}
                             style={{ borderRadius: 10, flexShrink: 0 }}
@@ -266,7 +266,7 @@ export default function MainLayout() {
                         />
                         <div>
                             <div style={{ fontSize: 13, fontWeight: 800, color: T.text, lineHeight: 1.2 }}>
-                                {basicUserInfo?.unitName ?? 'نظام التعرف على الوجه'}
+                                {basicUserInfo?.unitName ?? 'نظام التعرف على الأشخاص'}
                             </div>
                             <div style={{ fontSize: 11, color: T.muted }}>نظام التعرف الأمني الذكي</div>
                         </div>
@@ -424,12 +424,12 @@ export default function MainLayout() {
                             <SectionLabel label="الرئيسية" isDark={isDark} collapsed={collapsed} />
                             <NavItem to="/" icon={<HomeOutlined />} label="الصفحة الرئيسية" isDark={isDark} collapsed={collapsed} />
 
-                            <SectionLabel label="الأشخاص" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/Indexpersons" icon={<UsergroupAddOutlined />} label="قائمة الأشخاص" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/addperson" icon={<UserOutlined />} label="إضافة شخص" isDark={isDark} collapsed={collapsed} />
+                            <SectionLabel label="إدارة بيانات الأشخاص" isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/Indexpersons" icon={<UsergroupAddOutlined />} label="بيانات الأشخاص" isDark={isDark} collapsed={collapsed} />
+                            
 
                             <SectionLabel label="التعرف" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/RecognitionPage" icon={<SearchOutlined />} label="التعرف على شخص" isDark={isDark} collapsed={collapsed} />
+                            <NavItem to="/RecognitionPage" icon={<SearchOutlined />} label="التعرف من خلال صور" isDark={isDark} collapsed={collapsed} />
                             <NavItem
                                 to="/recognition/results"
                                 icon={<CheckCircleOutlined />}
@@ -451,10 +451,10 @@ export default function MainLayout() {
                                     setTimeout(() => window.open('/cameras/results', '_blank', 'noopener'), 300);
                                 }}
                             />
-
+                            <NavItem to="/cameras/monitor" icon={<VideoCameraOutlined />} label="ضبط الجهاز مع الكامرات" isDark={isDark} collapsed={collapsed} />
                             {(isAdmin || isManager) && (
                                 <>
-                                    <SectionLabel label="المستخدمون" isDark={isDark} collapsed={collapsed} />
+                                    <SectionLabel label="المستخدمين والصلاحيات" isDark={isDark} collapsed={collapsed} />
                                     <NavItem to="/Users" icon={<UserSwitchOutlined />} label="إدارة المستخدمين" isDark={isDark} collapsed={collapsed} />
                                 </>
                             )}
