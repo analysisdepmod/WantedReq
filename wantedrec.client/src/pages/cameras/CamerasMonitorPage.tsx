@@ -10,6 +10,10 @@ import {
     Select,
     message,
     Alert,
+    Card,
+    Row,
+    Col,
+    Tag,
 } from 'antd';
 import {
     VideoCameraOutlined,
@@ -20,6 +24,10 @@ import {
     LinkOutlined,
     WarningOutlined,
     ReloadOutlined,
+    RadarChartOutlined,
+    ThunderboltOutlined,
+    ApartmentOutlined,
+    ClockCircleOutlined,
 } from '@ant-design/icons';
 import axios from '../../api';
 
@@ -41,6 +49,37 @@ type ApiResponse<T> = {
     data: T;
 };
 
+
+
+function StatCard({
+    label,
+    value,
+    color,
+    bg,
+    border,
+    icon,
+}: {
+    label: string;
+    value: string | number;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.ReactNode;
+}) {
+    return (
+        <div className="stat-card">
+            <div>
+                <div style={{ fontSize: 18, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 6 }}>{label}</div>
+            </div>
+
+            <div className="stat-icon" style={{ background: bg, borderColor: border, color }}>
+                {icon}
+            </div>
+        </div>
+    );
+}
+
 export default function CamerasMonitorPage() {
     const navigate = useNavigate();
     const [msgApi, contextHolder] = message.useMessage();
@@ -55,20 +94,19 @@ export default function CamerasMonitorPage() {
     const [saving, setSaving] = useState(false);
     const [popupBlocked, setPopupBlocked] = useState(false);
 
-    // مهم جدًا حتى لا ينفتح التاب مرتين في StrictMode
     const bootRef = useRef(false);
     const launchRef = useRef(false);
     const timerRef = useRef<number | null>(null);
 
+    const activeDevices = useMemo(() => devices.filter((d) => d.isActive), [devices]);
+
     const deviceOptions = useMemo(
         () =>
-            devices
-                .filter(d => d.isActive)
-                .map(d => ({
-                    value: d.userDeviceId,
-                    label: `${d.name}${d.lastSeenAt ? ` — آخر استخدام: ${new Date(d.lastSeenAt).toLocaleString()}` : ''}`,
-                })),
-        [devices]
+            activeDevices.map((d) => ({
+                value: d.userDeviceId,
+                label: `${d.name}${d.lastSeenAt ? ` — آخر استخدام: ${new Date(d.lastSeenAt).toLocaleString()}` : ''}`,
+            })),
+        [activeDevices],
     );
 
     const cleanupTimer = () => {
@@ -78,26 +116,21 @@ export default function CamerasMonitorPage() {
         }
     };
 
-    const launchMonitoring = useCallback((deviceId: number) => {
-        if (launchRef.current) return;
-        launchRef.current = true;
+    const launchMonitoring = useCallback(
+        (deviceId: number) => {
+            if (launchRef.current) return;
+            launchRef.current = true;
 
-        localStorage.setItem(STORAGE_KEY, String(deviceId));
-        setPhase('launching');
+            localStorage.setItem(STORAGE_KEY, String(deviceId));
+            setPhase('launching');
 
-        //const resultsWin = window.open('/cameras');
-        //const blocked = !resultsWin;
-        //setPopupBlocked(blocked);
-
-        //if (resultsWin) {
-        //    resultsWin.blur?.();
-        //}
-
-        cleanupTimer();
-        timerRef.current = window.setTimeout(() => {
-            navigate('/cameras', { replace: true });
-        }, 1300);
-    }, [navigate]);
+            cleanupTimer();
+            timerRef.current = window.setTimeout(() => {
+                navigate('/cameras', { replace: true });
+            }, 1300);
+        },
+        [navigate],
+    );
 
     const loadDevices = useCallback(async () => {
         setLoadingDevices(true);
@@ -195,108 +228,70 @@ export default function CamerasMonitorPage() {
     if (phase === 'launching' || phase === 'checking') {
         return (
             <>
+   
                 {contextHolder}
 
-                <div
-                    style={{
-                        minHeight: '100vh',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        direction: 'rtl',
-                        padding: 24,
-                        background: 'var(--app-page-bg)',
-                        color: 'var(--app-text)',
-                    }}
-                >
-                    <div
-                        style={{
-                            width: 'min(560px, 100%)',
-                            background: 'var(--app-surface)',
-                            border: '1px solid var(--app-border)',
-                            borderRadius: 22,
-                            padding: '42px 28px',
-                            textAlign: 'center',
-                            boxShadow: 'var(--app-shadow)',
-                        }}
-                    >
-                        <div
-                            style={{
-                                width: 82,
-                                height: 82,
-                                margin: '0 auto 18px',
-                                borderRadius: 22,
-                                background: 'linear-gradient(135deg, var(--app-hero-start), var(--app-hero-end))',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <VideoCameraOutlined style={{ fontSize: 34, color: '#fff' }} />
-                        </div>
+                <div className="monitor-shell">
+                    <div className="center-wrap">
+                        <div className="launch-box">
+                            <div className="big-orb">
+                                <VideoCameraOutlined style={{ fontSize: 34, color: '#fff' }} />
+                            </div>
 
-                        <Spin indicator={<LoadingOutlined spin style={{ fontSize: 28 }} />} />
+                            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 28 }} />} />
 
-                        <Title level={3} style={{ marginTop: 18, marginBottom: 6, color: 'var(--app-text)' }}>
-                            جاري فتح صفحة المراقبة
-                        </Title>
+                            <Title level={3} style={{ marginTop: 18, marginBottom: 6, color: 'var(--app-text)' }}>
+                                جاري فتح صفحة المراقبة
+                            </Title>
 
-                        <Text style={{ color: 'var(--app-muted)', fontSize: 14 }}>
-                            يتم تجهيز البث المباشر في هذه الصفحة
-                        </Text>
+                            <Text style={{ color: 'var(--app-muted)', fontSize: 14 }}>
+                                يتم تجهيز البث المباشر في هذه الصفحة
+                            </Text>
 
-                        {popupBlocked && (
-                            <Alert
-                                style={{ marginTop: 18, textAlign: 'right' }}
-                                type="warning"
-                                showIcon
-                                icon={<WarningOutlined />}
-                                message="تعذر فتح تبويب النتائج تلقائيًا"
-                                description="اسمح بالـ Popups لهذا الموقع أو افتح صفحة النتائج يدويًا."
-                            />
-                        )}
+                            {popupBlocked && (
+                                <Alert
+                                    style={{ marginTop: 18, textAlign: 'right', borderRadius: 14 }}
+                                    type="warning"
+                                    showIcon
+                                    icon={<WarningOutlined />}
+                                    message="تعذر فتح تبويب النتائج تلقائيًا"
+                                    description="اسمح بالـ Popups لهذا الموقع أو افتح صفحة النتائج يدويًا."
+                                />
+                            )}
 
-                        <div
-                            style={{
-                                marginTop: 22,
-                                background: 'var(--app-surface-2)',
-                                border: '1px solid var(--app-border)',
-                                borderRadius: 16,
-                                padding: '14px 16px',
-                                textAlign: 'right',
-                            }}
-                        >
-                            <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <CheckCircleOutlined style={{ color: '#16a34a' }} />
-                                        <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
-                                            النتائج المباشرة
+                            <div className="launch-status">
+                                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <CheckCircleOutlined style={{ color: '#16a34a' }} />
+                                            <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                                                النتائج المباشرة
+                                            </Text>
+                                        </div>
+                                        <Text style={{ color: popupBlocked ? '#d97706' : '#2563eb', fontWeight: 600 }}>
+                                            {popupBlocked ? 'تحقق من السماح بالـ Popups' : 'تم تجهيزها'}
                                         </Text>
                                     </div>
-                                    <Text style={{ color: popupBlocked ? '#d97706' : '#2563eb', fontWeight: 600 }}>
-                                        {popupBlocked ? 'تحقق من السماح بالـ Popups' : 'تم فتحها في تاب جديد'}
-                                    </Text>
-                                </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <CheckCircleOutlined style={{ color: '#16a34a' }} />
-                                        <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
-                                            البث المباشر
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <CheckCircleOutlined style={{ color: '#16a34a' }} />
+                                            <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>
+                                                البث المباشر
+                                            </Text>
+                                        </div>
+                                        <Text style={{ color: '#2563eb', fontWeight: 600 }}>
+                                            سيظهر هنا بعد لحظات
                                         </Text>
                                     </div>
-                                    <Text style={{ color: '#2563eb', fontWeight: 600 }}>
-                                        سيظهر هنا بعد لحظات
-                                    </Text>
-                                </div>
-                            </Space>
-                        </div>
+                                </Space>
+                            </div>
 
-                        <div style={{ marginTop: 16 }}>
-                            <Button onClick={resetStoredDevice} icon={<ReloadOutlined />}>
-                                اختيار جهاز آخر
-                            </Button>
+                            <div style={{ marginTop: 16 }}>
+                                <Button onClick={resetStoredDevice} icon={<ReloadOutlined />}>
+                                    اختيار جهاز آخر
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -306,135 +301,211 @@ export default function CamerasMonitorPage() {
 
     return (
         <>
+        
             {contextHolder}
 
-            <div
-                style={{
-                    minHeight: '100vh',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    direction: 'rtl',
-                    padding: 24,
-                    background: 'var(--app-page-bg)',
-                    color: 'var(--app-text)',
-                }}
-            >
-                <div
-                    style={{
-                        width: 'min(620px, 100%)',
-                        background: 'var(--app-surface)',
-                        border: '1px solid var(--app-border)',
-                        borderRadius: 22,
-                        padding: '34px 28px',
-                        boxShadow: 'var(--app-shadow)',
-                    }}
-                >
-                    <Space direction="vertical" size={18} style={{ width: '100%' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div
-                                style={{
-                                    width: 76,
-                                    height: 76,
-                                    margin: '0 auto 14px',
-                                    borderRadius: 20,
-                                    background: 'linear-gradient(135deg, var(--app-hero-start), var(--app-hero-end))',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <LaptopOutlined style={{ fontSize: 32, color: '#fff' }} />
+            <div className="monitor-shell">
+                <div className="monitor-hero">
+                    <div className="monitor-hero-inner">
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                            <div className="hero-badge">
+                                <LaptopOutlined style={{ fontSize: 28, color: '#fff' }} />
                             </div>
 
-                            <Title level={3} style={{ marginBottom: 6, color: 'var(--app-text)' }}>
-                                اختيار الجهاز الحالي
+                            <div>
+                                <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 900 }}>
+                                    اختيار الجهاز الحالي
+                                </Title>
+                                <Text style={{ color: 'rgba(255,255,255,.86)', fontSize: 13 }}>
+                                    حتى نعرض الكامرات المحلية الخاصة بهذا الجهاز ونربطه بجلسة المراقبة.
+                                </Text>
+                            </div>
+                        </div>
+
+                        <div className="hero-actions">
+                            <Button className="hero-btn" icon={<ReloadOutlined />} onClick={resetStoredDevice}>
+                                إعادة التعيين
+                            </Button>
+
+                            <Button className="hero-btn" type="primary" icon={<VideoCameraOutlined />}>
+                                تجهيز المراقبة
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <Row gutter={[14, 14]} className="stats-grid">
+                    <Col xs={12} md={8} lg={6}>
+                        <StatCard
+                            label="الأجهزة الفعالة"
+                            value={activeDevices.length}
+                            color="#16a34a"
+                            bg="var(--app-soft-green)"
+                            border="#bbf7d0"
+                            icon={<CheckCircleOutlined />}
+                        />
+                    </Col>
+
+                    <Col xs={12} md={8} lg={6}>
+                        <StatCard
+                            label="إجمالي الأجهزة"
+                            value={devices.length}
+                            color="#2563eb"
+                            bg="var(--app-soft-blue)"
+                            border="#bfdbfe"
+                            icon={<ApartmentOutlined />}
+                        />
+                    </Col>
+
+                    <Col xs={12} md={8} lg={6}>
+                        <StatCard
+                            label="الوضع المختار"
+                            value={mode === 'new' ? 'جديد' : 'قديم'}
+                            color="#7c3aed"
+                            bg="var(--app-soft-purple)"
+                            border="#ddd6fe"
+                            icon={<RadarChartOutlined />}
+                        />
+                    </Col>
+
+                    <Col xs={12} md={8} lg={6}>
+                        <StatCard
+                            label="جاهزية الصفحة"
+                            value="مستعدة"
+                            color="#d97706"
+                            bg="var(--app-soft-amber)"
+                            border="#fde68a"
+                            icon={<ClockCircleOutlined />}
+                        />
+                    </Col>
+                </Row>
+
+                <div className="choice-box">
+                    <div className="choice-head">
+                        <div className="big-orb small">
+                            <LaptopOutlined style={{ fontSize: 32, color: '#fff' }} />
+                        </div>
+
+                        <div>
+                            <Title level={4} style={{ margin: 0, color: 'var(--app-text)' }}>
+                                تحديد الجهاز المستخدم
                             </Title>
                             <Text style={{ color: 'var(--app-muted)' }}>
-                                حتى نعرض الكامرات المحلية الخاصة بهذا الجهاز
+                                بعد الاختيار سيتم حفظ الجهاز في هذا المتصفح
                             </Text>
                         </div>
+                    </div>
 
-                        <Segmented
-                            block
-                            value={mode}
-                            onChange={(v) => setMode(v as 'new' | 'old')}
-                            options={[
-                                { label: 'جهاز جديد', value: 'new' },
-                                { label: 'جهاز قديم', value: 'old' },
-                            ]}
-                        />
+                    <div className="choice-body">
+                        <div className="choice-stack">
+                            <Segmented
+                                block
+                                value={mode}
+                                onChange={(v) => setMode(v as 'new' | 'old')}
+                                options={[
+                                    { label: 'جهاز جديد', value: 'new' },
+                                    { label: 'جهاز قديم', value: 'old' },
+                                ]}
+                            />
 
-                        {mode === 'new' ? (
-                            <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                                <Input
-                                    value={deviceName}
-                                    onChange={(e) => setDeviceName(e.target.value)}
-                                    placeholder="مثال: iPad Aso أو حاسبة المكتب"
-                                    size="large"
+                            {mode === 'new' ? (
+                                <Card bordered={false} style={{ background: 'var(--app-surface-2)', borderRadius: 18 }}>
+                                    <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                                        <div className="form-field">
+                                            <Input
+                                                value={deviceName}
+                                                onChange={(e) => setDeviceName(e.target.value)}
+                                                placeholder="مثال: iPad Aso أو حاسبة المكتب"
+                                                size="large"
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Button
+                                                type="primary"
+                                                icon={<PlusOutlined />}
+                                                size="large"
+                                                loading={saving}
+                                                onClick={registerNewDevice}
+                                                block
+                                            >
+                                                تسجيل جهاز جديد والمتابعة
+                                            </Button>
+                                        </div>
+                                    </Space>
+                                </Card>
+                            ) : (
+                                <Card bordered={false} style={{ background: 'var(--app-surface-2)', borderRadius: 18 }}>
+                                    <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                                        <div className="form-field">
+                                            <Select
+                                                showSearch
+                                                size="large"
+                                                loading={loadingDevices}
+                                                options={deviceOptions}
+                                                value={selectedDeviceId}
+                                                onChange={setSelectedDeviceId}
+                                                placeholder="اختر جهازًا مسجلًا"
+                                                filterOption={(input, option) =>
+                                                    String(option?.label ?? '')
+                                                        .toLowerCase()
+                                                        .includes(input.toLowerCase())
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Button
+                                                type="default"
+                                                icon={<ReloadOutlined />}
+                                                size="large"
+                                                loading={loadingDevices}
+                                                onClick={loadDevices}
+                                                block
+                                            >
+                                                تحديث قائمة الأجهزة
+                                            </Button>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <Button
+                                                type="primary"
+                                                icon={<LinkOutlined />}
+                                                size="large"
+                                                loading={saving}
+                                                onClick={useOldDevice}
+                                                block
+                                            >
+                                                استخدام الجهاز المختار والمتابعة
+                                            </Button>
+                                        </div>
+                                    </Space>
+                                </Card>
+                            )}
+
+                            <div className="helper-box">
+                                <Text style={{ color: 'var(--app-muted)', fontSize: 12 }}>
+                                    إذا تغير المتصفح أو انمسحت البيانات فسنطلب منك الاختيار مرة ثانية.
+                                    الجهاز المحفوظ يحدد الكامرات المحلية التي ستظهر في النظام الحالي.
+                                </Text>
+                            </div>
+
+                            {mode === 'old' && activeDevices.length === 0 && !loadingDevices && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    style={{ borderRadius: 14 }}
+                                    message="لا توجد أجهزة فعالة متاحة"
+                                    description="يمكنك تسجيل جهاز جديد مباشرة أو تحديث قائمة الأجهزة."
                                 />
+                            )}
 
-                                <Button
-                                    type="primary"
-                                    icon={<PlusOutlined />}
-                                    size="large"
-                                    loading={saving}
-                                    onClick={registerNewDevice}
-                                >
-                                    تسجيل جهاز جديد والمتابعة
-                                </Button>
-                            </Space>
-                        ) : (
-                            <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                                <Select
-                                    showSearch
-                                    size="large"
-                                    loading={loadingDevices}
-                                    options={deviceOptions}
-                                    value={selectedDeviceId}
-                                    onChange={setSelectedDeviceId}
-                                    placeholder="اختر جهازًا مسجلًا"
-                                    filterOption={(input, option) =>
-                                        String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                    }
-                                />
-
-                                <Button
-                                    type="default"
-                                    icon={<ReloadOutlined />}
-                                    size="large"
-                                    loading={loadingDevices}
-                                    onClick={loadDevices}
-                                >
-                                    تحديث قائمة الأجهزة
-                                </Button>
-
-                                <Button
-                                    type="primary"
-                                    icon={<LinkOutlined />}
-                                    size="large"
-                                    loading={saving}
-                                    onClick={useOldDevice}
-                                >
-                                    استخدام الجهاز المختار والمتابعة
-                                </Button>
-                            </Space>
-                        )}
-
-                        <div
-                            style={{
-                                background: 'var(--app-surface-2)',
-                                border: '1px solid var(--app-border)',
-                                borderRadius: 14,
-                                padding: 14,
-                            }}
-                        >
-                            <Text style={{ color: 'var(--app-muted)', fontSize: 12 }}>
-                                بعد الاختيار سيتم حفظ الجهاز في المتصفح الحالي، وإذا تغير المتصفح أو انمسحت البيانات
-                                سنسألك مرة ثانية هل هذا جهاز جديد أو قديم.
-                            </Text>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <Tag color="blue">المفتاح المحلي: {STORAGE_KEY}</Tag>
+                                <Tag color="green">المرحلة: {phase}</Tag>
+                            </div>
                         </div>
-                    </Space>
+                    </div>
                 </div>
             </div>
         </>

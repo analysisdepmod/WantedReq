@@ -1,20 +1,43 @@
-// ═══════════════════════════════════════════════════════
-//  src/pages/cameras/CamerasManagePage.tsx
-//  Route: /cameras   — إدارة الكاميرات (CRUD)
-// ═══════════════════════════════════════════════════════
 import { useEffect, useMemo, useState } from 'react';
 import {
-    Row, Col, Button, Typography, Space, Switch, Spin,
-    Tooltip, Modal, Form, Input, Select,
-    InputNumber, Popconfirm, Divider, Alert, Tag, message,
+    Row,
+    Col,
+    Button,
+    Typography,
+    Space,
+    Switch,
+    Spin,
+    Tooltip,
+    Modal,
+    Form,
+    Input,
+    Select,
+    InputNumber,
+    Popconfirm,
+    Divider,
+    Alert,
+    Tag,
+    message,
 } from 'antd';
 import {
-    VideoCameraOutlined, PlusOutlined, EditOutlined,
-    DeleteOutlined, ReloadOutlined, PlayCircleOutlined,
-    WifiOutlined, HomeOutlined, GlobalOutlined,
-    EnvironmentOutlined, SettingOutlined, WarningOutlined,
-    CheckCircleOutlined, StopOutlined, ClockCircleOutlined,
-    LinkOutlined, CameraOutlined,
+    VideoCameraOutlined,
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    ReloadOutlined,
+    PlayCircleOutlined,
+    WifiOutlined,
+    HomeOutlined,
+    GlobalOutlined,
+    EnvironmentOutlined,
+    SettingOutlined,
+    WarningOutlined,
+    CheckCircleOutlined,
+    StopOutlined,
+    ClockCircleOutlined,
+    LinkOutlined,
+    CameraOutlined,
+    ApartmentOutlined,
 } from '@ant-design/icons';
 import { useCameras, type CameraUpsertPayload } from '../../hooks/useCameras';
 import { snapshotUrl } from '../../api/camerasApi';
@@ -24,7 +47,6 @@ import { detectCameraKind } from '../../types/camera.types';
 const { Title, Text } = Typography;
 const STORAGE_KEY = 'current_device_id';
 
-// ── Palette ─────────────────────────────────────────────
 const C = {
     bg: 'var(--app-page-bg)',
     white: 'var(--app-surface)',
@@ -38,72 +60,13 @@ const C = {
     muted: 'var(--app-muted)',
 };
 
-const CSS = `
-  @keyframes livePulse {
-    0%,100% { box-shadow:0 0 0 0 rgba(22,163,74,.5); }
-    60%      { box-shadow:0 0 0 8px rgba(22,163,74,0); }
-  }
-  @keyframes slideUp {
-    from { opacity:0; transform:translateY(12px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  .cam-card {
-    background:var(--app-surface);
-    border:1px solid var(--app-border);
-    border-radius:16px;
-    padding:20px;
-    height:100%;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-    transition:all .25s;
-    cursor:default;
-    position:relative;
-    overflow:hidden;
-  }
-  .cam-card::before {
-    content:'';
-    position:absolute;
-    top:0;
-    left:0;
-    right:0;
-    height:3px;
-    background:linear-gradient(90deg,#2563eb,#7c3aed);
-    opacity:0;
-    transition:opacity .25s;
-  }
-  .cam-card:hover {
-    border-color:#2563eb33;
-    transform:translateY(-3px);
-    box-shadow:0 12px 32px rgba(37,99,235,.12);
-  }
-  .cam-card:hover::before {
-    opacity:1;
-  }
-  .cam-card.live {
-    border-color:#bbf7d0;
-    background:linear-gradient(160deg,var(--app-soft-green),var(--app-surface));
-  }
-  .cam-card.live::before {
-    opacity:1;
-    background:linear-gradient(90deg,#16a34a,#059669);
-  }
-  .cam-card.offline {
-    border-color:#fecaca;
-    background:linear-gradient(160deg,var(--app-soft-red),var(--app-surface));
-  }
-  .cam-card.offline::before {
-    opacity:1;
-    background:linear-gradient(90deg,#dc2626,#ef4444);
-  }
-`;
+ 
 
 type AvailabilityValue = boolean | null | undefined;
 
 const getCurrentDeviceId = (): number | null => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-
     const parsed = Number(raw);
     return Number.isNaN(parsed) ? null : parsed;
 };
@@ -112,9 +75,8 @@ function getLocalDeviceLabel(device: MediaDeviceInfo, index: number) {
     return device.label?.trim() || `كاميرا محلية ${index}`;
 }
 
-// ── Helpers ─────────────────────────────────────────────
 function probeImage(url: string, timeoutMs = 4000): Promise<boolean> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         const img = new Image();
         const timer = window.setTimeout(() => {
             cleanup();
@@ -194,7 +156,6 @@ function getCameraVisualState(cam: CameraDto, availability: AvailabilityValue) {
     };
 }
 
-// ── KindBadge ───────────────────────────────────────────
 function KindBadge({ cam }: { cam: CameraDto }) {
     const kind = detectCameraKind(cam);
     const map: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -206,24 +167,48 @@ function KindBadge({ cam }: { cam: CameraDto }) {
     const k = map[kind] ?? map.local;
 
     return (
-        <span style={{
-            fontSize: 10,
-            fontWeight: 700,
-            padding: '2px 8px',
-            borderRadius: 20,
-            background: `${k.color}14`,
-            border: `1px solid ${k.color}33`,
-            color: k.color,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-        }}>
+        <Tag
+            className="device-chip"
+            style={{
+                background: `${k.color}14`,
+                border: `1px solid ${k.color}33`,
+                color: k.color,
+            }}
+        >
             {k.icon} {k.label}
-        </span>
+        </Tag>
     );
 }
 
-// ── CameraCard ──────────────────────────────────────────
+function StatCard({
+    label,
+    value,
+    color,
+    bg,
+    border,
+    icon,
+}: {
+    label: string;
+    value: string | number;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.ReactNode;
+}) {
+    return (
+        <div className="stat-card">
+            <div>
+                <div style={{ fontSize: 24, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 12, color: 'var(--app-muted)', marginTop: 6 }}>{label}</div>
+            </div>
+
+            <div className="stat-icon" style={{ background: bg, borderColor: border, color }}>
+                {icon}
+            </div>
+        </div>
+    );
+}
+
 function CameraCard({
     cam,
     idx,
@@ -263,20 +248,16 @@ function CameraCard({
             : null;
 
     return (
-        <div className={cardClass} style={{ animation: `slideUp .35s ease ${idx * 0.04}s both` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        flexShrink: 0,
-                        background: visual.bg,
-                        border: `1px solid ${visual.border}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
+        <div className={cardClass} style={{ animationDelay: `${idx * 0.04}s` }}>
+            <div className="cam-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div
+                        className="cam-avatar"
+                        style={{
+                            background: visual.bg,
+                            borderColor: visual.border,
+                        }}
+                    >
                         <VideoCameraOutlined style={{ fontSize: 20, color: visual.color }} />
                     </div>
 
@@ -292,75 +273,57 @@ function CameraCard({
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Space size={6} align="center">
                     {visual.key === 'live' && (
-                        <span style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: C.green,
-                            display: 'inline-block',
-                            animation: 'livePulse 2s infinite',
-                        }} />
+                        <span
+                            style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                background: C.green,
+                                display: 'inline-block',
+                                animation: 'livePulse 2s infinite',
+                            }}
+                        />
                     )}
 
-                    <span style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: '2px 10px',
-                        borderRadius: 20,
-                        color: visual.color,
-                        background: visual.bg,
-                        border: `1px solid ${visual.border}`,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                    }}>
-                        {visual.icon}
-                        {visual.label}
-                    </span>
-                </div>
+                    <Tag
+                        className="device-chip"
+                        style={{
+                            background: visual.bg,
+                            border: `1px solid ${visual.border}`,
+                            color: visual.color,
+                        }}
+                    >
+                        {visual.icon} {visual.label}
+                    </Tag>
+                </Space>
             </div>
 
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div className="kind-strip">
                 <KindBadge cam={cam} />
-
                 {cam.isIndoor ? (
-                    <span style={{
-                        fontSize: 10,
-                        color: C.blue,
-                        background: '#eff6ff',
-                        padding: '2px 8px',
-                        borderRadius: 20,
-                        border: '1px solid #bfdbfe',
-                    }}>
-                        <HomeOutlined style={{ marginLeft: 3 }} />
+                    <Tag className="device-chip" color="blue">
+                        <HomeOutlined style={{ marginLeft: 4 }} />
                         داخلية
-                    </span>
+                    </Tag>
                 ) : (
-                    <span style={{
-                        fontSize: 10,
-                        color: C.green,
-                        background: '#f0fdf4',
-                        padding: '2px 8px',
-                        borderRadius: 20,
-                        border: '1px solid #bbf7d0',
-                    }}>
-                        <GlobalOutlined style={{ marginLeft: 3 }} />
+                    <Tag className="device-chip" color="green">
+                        <GlobalOutlined style={{ marginLeft: 4 }} />
                         خارجية
-                    </span>
+                    </Tag>
                 )}
             </div>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {cam.area && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="info-row">
                         <EnvironmentOutlined style={{ color: C.muted, fontSize: 12 }} />
                         <Text style={{ color: C.muted, fontSize: 12 }}>{cam.area}</Text>
                     </div>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div className="info-row">
                     {kind === 'local' ? (
                         <>
                             <HomeOutlined style={{ color: C.blue, fontSize: 12 }} />
@@ -380,23 +343,15 @@ function CameraCard({
                 </div>
 
                 {visual.note && (
-                    <div style={{
-                        marginTop: 4,
-                        background: visual.bg,
-                        border: `1px dashed ${visual.border}`,
-                        borderRadius: 10,
-                        padding: '7px 10px',
-                    }}>
-                        <Text style={{ fontSize: 11, color: visual.color }}>
-                            {visual.note}
-                        </Text>
+                    <div className="note-box" style={{ color: visual.color, background: visual.bg }}>
+                        <Text style={{ fontSize: 11, color: visual.color }}>{visual.note}</Text>
                     </div>
                 )}
             </div>
 
-            <Divider style={{ margin: '4px 0' }} />
+            <Divider style={{ margin: '2px 0 0' }} />
 
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <div className="cam-actions">
                 <Switch
                     checked={cam.isActive}
                     onChange={onToggle}
@@ -409,7 +364,7 @@ function CameraCard({
                 <div style={{ flex: 1 }} />
 
                 <Tooltip title="تعديل">
-                    <Button size="small" icon={<EditOutlined />} onClick={onEdit} style={{ borderRadius: 8 }} />
+                    <Button size="small" icon={<EditOutlined />} onClick={onEdit} />
                 </Tooltip>
 
                 <Tooltip title="فتح منفردة">
@@ -419,19 +374,17 @@ function CameraCard({
                         type="primary"
                         ghost
                         onClick={() => window.open(`/cameras/${cam.cameraId}`, '_blank')}
-                        style={{ borderRadius: 8 }}
                     />
                 </Tooltip>
 
                 <Popconfirm title="حذف الكاميرا؟" okText="نعم" cancelText="لا" onConfirm={onDelete}>
-                    <Button size="small" icon={<DeleteOutlined />} danger style={{ borderRadius: 8 }} />
+                    <Button size="small" icon={<DeleteOutlined />} danger />
                 </Popconfirm>
             </div>
         </div>
     );
 }
 
-// ── CameraFormModal ─────────────────────────────────────
 function CameraFormModal({
     open,
     editingId,
@@ -453,20 +406,21 @@ function CameraFormModal({
 }) {
     const [form] = Form.useForm();
     const [msgApi, holder] = message.useMessage();
-    const editing = cameras.find(c => c.cameraId === editingId);
+    const editing = cameras.find((c) => c.cameraId === editingId);
     const streamUrlValue = Form.useWatch('streamUrl', form);
     const isLocalMode = !String(streamUrlValue ?? '').trim();
 
     const usedLocalIndexSet = useMemo(() => {
         return new Set(
             cameras
-                .filter(c =>
-                    detectCameraKind(c) === 'local' &&
-                    c.localDeviceIndex !== undefined &&
-                    c.localDeviceIndex !== null &&
-                    c.cameraId !== editingId
+                .filter(
+                    (c) =>
+                        detectCameraKind(c) === 'local' &&
+                        c.localDeviceIndex !== undefined &&
+                        c.localDeviceIndex !== null &&
+                        c.cameraId !== editingId,
                 )
-                .map(c => c.localDeviceIndex as number)
+                .map((c) => c.localDeviceIndex as number),
         );
     }, [cameras, editingId]);
 
@@ -478,13 +432,13 @@ function CameraFormModal({
                     label: `[${index}] ${getLocalDeviceLabel(device, index)}`,
                     disabled: usedLocalIndexSet.has(index),
                 }))
-                .filter(option => !option.disabled),
-        [localDevices, usedLocalIndexSet]
+                .filter((option) => !option.disabled),
+        [localDevices, usedLocalIndexSet],
     );
 
     const availableLocalIndexSet = useMemo(
-        () => new Set(localDeviceOptions.map(option => Number(option.value))),
-        [localDeviceOptions]
+        () => new Set(localDeviceOptions.map((option) => Number(option.value))),
+        [localDeviceOptions],
     );
 
     const usedLocalIndicesText = useMemo(() => {
@@ -555,7 +509,7 @@ function CameraFormModal({
 
         const dto: CameraUpsertPayload = {
             ...vals,
-            ipAddress: streamUrl ? (vals.ipAddress || '') : 'local',
+            ipAddress: streamUrl ? vals.ipAddress || '' : 'local',
             streamUrl: streamUrl || undefined,
             localDeviceIndex: streamUrl ? undefined : parsedIndex,
             userDeviceId: streamUrl ? undefined : (currentDeviceId ?? undefined),
@@ -577,16 +531,16 @@ function CameraFormModal({
                     </Space>
                 }
                 footer={null}
-                width={760}
+                width={780}
                 centered
                 styles={{ body: { direction: 'rtl', paddingTop: 16 } }}
             >
-                <Form form={form} layout="vertical" onFinish={onFinish}>
+                <Form form={form} layout="vertical" onFinish={onFinish} className="modal-form">
                     {isLocalMode && !currentDeviceId && (
                         <Alert
                             type="warning"
                             showIcon
-                            style={{ marginBottom: 16 }}
+                            style={{ marginBottom: 16, borderRadius: 14 }}
                             message="لا يوجد جهاز حالي مختار"
                             description="إذا كانت هذه كاميرا محلية، افتح صفحة ضبط الجهاز أولًا وحدد الجهاز الحالي، ثم ارجع للإضافة."
                         />
@@ -596,7 +550,7 @@ function CameraFormModal({
                         <Alert
                             type={localDeviceOptions.length > 0 ? 'info' : 'warning'}
                             showIcon
-                            style={{ marginBottom: 16 }}
+                            style={{ marginBottom: 16, borderRadius: 14 }}
                             message={
                                 localDeviceOptions.length > 0
                                     ? `المتاح للإضافة على هذا الجهاز: ${localDeviceOptions.length} كامرة محلية`
@@ -612,7 +566,11 @@ function CameraFormModal({
 
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item name="name" label="اسم الكاميرا" rules={[{ required: true, message: 'اسم الكاميرا مطلوب' }]}>
+                            <Form.Item
+                                name="name"
+                                label="اسم الكاميرا"
+                                rules={[{ required: true, message: 'اسم الكاميرا مطلوب' }]}
+                            >
                                 <Input placeholder="Camera1" />
                             </Form.Item>
                         </Col>
@@ -653,7 +611,7 @@ function CameraFormModal({
                                 extra={
                                     isLocalMode
                                         ? localDeviceOptions.length > 0
-                                            ? `المتاح فقط: ${localDeviceOptions.map(x => x.label).join(' ، ')}`
+                                            ? `المتاح فقط: ${localDeviceOptions.map((x) => x.label).join(' ، ')}`
                                             : 'لا توجد كامرات محلية متاحة حاليًا لهذا الجهاز'
                                         : 'هذا الحقل يُستخدم فقط عند ترك رابط البث فارغًا'
                                 }
@@ -664,9 +622,9 @@ function CameraFormModal({
                                     options={localDeviceOptions}
                                     placeholder={
                                         isLocalMode
-                                            ? (localDeviceOptions.length > 0
+                                            ? localDeviceOptions.length > 0
                                                 ? 'اختر كامرة محلية متاحة'
-                                                : 'لا توجد كامرات محلية متاحة')
+                                                : 'لا توجد كامرات محلية متاحة'
                                             : 'غير مطلوب للكاميرات الشبكية'
                                     }
                                     filterOption={(input, option) =>
@@ -751,7 +709,6 @@ function CameraFormModal({
     );
 }
 
-// ── CamerasManagePage ───────────────────────────────────
 export default function CamerasManagePage() {
     const [currentDeviceId, setCurrentDeviceId] = useState<number | null>(() => getCurrentDeviceId());
 
@@ -779,7 +736,6 @@ export default function CamerasManagePage() {
 
     useEffect(() => {
         const syncDevice = () => setCurrentDeviceId(getCurrentDeviceId());
-
         window.addEventListener('storage', syncDevice);
         window.addEventListener('focus', syncDevice);
 
@@ -789,18 +745,17 @@ export default function CamerasManagePage() {
         };
     }, []);
 
-    // ── Read local camera devices ───────────────────────
     useEffect(() => {
         let disposed = false;
 
         const loadDevices = async () => {
             try {
                 const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
-                tmp.getTracks().forEach(t => t.stop());
+                tmp.getTracks().forEach((t) => t.stop());
 
                 const all = await navigator.mediaDevices.enumerateDevices();
                 if (!disposed) {
-                    setLocalDevices(all.filter(d => d.kind === 'videoinput'));
+                    setLocalDevices(all.filter((d) => d.kind === 'videoinput'));
                 }
             } catch {
                 if (!disposed) {
@@ -824,13 +779,12 @@ export default function CamerasManagePage() {
         };
     }, []);
 
-    // ── Availability check ──────────────────────────────
     useEffect(() => {
         let disposed = false;
 
         const initialStatus: Record<number, AvailabilityValue> = {};
 
-        cameras.forEach(cam => {
+        cameras.forEach((cam) => {
             if (!cam.isActive) {
                 initialStatus[cam.cameraId] = false;
                 return;
@@ -839,20 +793,15 @@ export default function CamerasManagePage() {
             if (detectCameraKind(cam) === 'local') {
                 const idx = cam.localDeviceIndex;
                 initialStatus[cam.cameraId] =
-                    idx !== undefined &&
-                    idx !== null &&
-                    idx >= 0 &&
-                    idx < localDevices.length;
+                    idx !== undefined && idx !== null && idx >= 0 && idx < localDevices.length;
             } else {
                 initialStatus[cam.cameraId] = null;
             }
         });
 
-        setAvailabilityMap(prev => ({ ...prev, ...initialStatus }));
+        setAvailabilityMap((prev) => ({ ...prev, ...initialStatus }));
 
-        const remoteCameras = cameras.filter(
-            cam => cam.isActive && detectCameraKind(cam) !== 'local'
-        );
+        const remoteCameras = cameras.filter((cam) => cam.isActive && detectCameraKind(cam) !== 'local');
 
         if (remoteCameras.length === 0) {
             return () => {
@@ -862,19 +811,19 @@ export default function CamerasManagePage() {
 
         (async () => {
             const results = await Promise.all(
-                remoteCameras.map(async cam => {
+                remoteCameras.map(async (cam) => {
                     const base = snapshotUrl(cam.cameraId);
                     const glue = base.includes('?') ? '&' : '?';
                     const ok = await probeImage(`${base}${glue}_=${Date.now()}`, 4000);
                     return { cameraId: cam.cameraId, ok };
-                })
+                }),
             );
 
             if (disposed) return;
 
-            setAvailabilityMap(prev => {
+            setAvailabilityMap((prev) => {
                 const next = { ...prev };
-                results.forEach(r => {
+                results.forEach((r) => {
                     next[r.cameraId] = r.ok;
                 });
                 return next;
@@ -888,7 +837,6 @@ export default function CamerasManagePage() {
 
     const openMonitor = () => {
         if (openingMonitor) return;
-
         setOpeningMonitor(true);
 
         try {
@@ -900,147 +848,169 @@ export default function CamerasManagePage() {
         }
     };
 
-    const activeAvailable = cameras.filter(c => c.isActive && availabilityMap[c.cameraId] === true).length;
-    const unavailable = cameras.filter(c => c.isActive && availabilityMap[c.cameraId] === false).length;
-    const checking = cameras.filter(c => c.isActive && (availabilityMap[c.cameraId] === null || availabilityMap[c.cameraId] === undefined)).length;
-    const stopped = cameras.filter(c => !c.isActive).length;
-    const local = cameras.filter(c => detectCameraKind(c) === 'local').length;
+    const activeAvailable = cameras.filter((c) => c.isActive && availabilityMap[c.cameraId] === true).length;
+    const unavailable = cameras.filter((c) => c.isActive && availabilityMap[c.cameraId] === false).length;
+    const checking = cameras.filter(
+        (c) => c.isActive && (availabilityMap[c.cameraId] === null || availabilityMap[c.cameraId] === undefined),
+    ).length;
+    const stopped = cameras.filter((c) => !c.isActive).length;
+    const local = cameras.filter((c) => detectCameraKind(c) === 'local').length;
     const ip = cameras.length - local;
 
     return (
         <>
-            <style>{CSS}</style>
+     
             {ctx}
 
-            <div style={{ padding: 24, direction: 'rtl', background: C.bg, minHeight: '100vh' }}>
-                <div style={{
-                    background: C.white,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 18,
-                    padding: '18px 26px',
-                    marginBottom: 24,
-                    boxShadow: 'var(--app-shadow)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                }}>
-                    <Space align="center" size={14}>
-                        <div style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 14,
-                            background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 4px 14px rgba(37,99,235,.3)',
-                        }}>
-                            <SettingOutlined style={{ fontSize: 22, color: '#fff' }} />
-                        </div>
+            <div className="cams-shell">
+                <div className="cams-hero">
+                    <div className="cams-hero-inner">
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                            <div className="hero-badge">
+                                <SettingOutlined style={{ fontSize: 28, color: '#fff' }} />
+                            </div>
 
-                        <div>
-                            <Title level={4} style={{ margin: 0, color: C.text, fontWeight: 800 }}>
-                                وحدة إدارة الكاميرات
-                            </Title>
-                            <Text style={{ color: C.muted, fontSize: 12 }}>
-                                إضافة وتعديل وإدارة شبكة الكاميرات الأمنية
-                            </Text>
-
-                            <div style={{ marginTop: 6 }}>
-                                <Text style={{ fontSize: 12, color: currentDeviceId ? C.blue : C.red }}>
-                                    <LinkOutlined style={{ marginLeft: 4 }} />
-                                    الجهاز الحالي:
-                                    {' '}
-                                    {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
+                            <div>
+                                <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 900 }}>
+                                    إدارة الكاميرات
+                                </Title>
+                                <Text style={{ color: 'rgba(255,255,255,.86)', fontSize: 13 }}>
+                                    إضافة وتعديل وتشغيل شبكة الكاميرات المحلية والشبكية من لوحة موحّدة.
                                 </Text>
-                            </div>
 
-                            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {localDevices.length > 0 ? (
-                                    localDevices.map((d, i) => (
-                                        <Tag key={d.deviceId || `${d.kind}-${i}`} color="blue" style={{ marginInlineEnd: 0 }}>
-                                            <CameraOutlined style={{ marginLeft: 4 }} />
-                                            [{i}] {getLocalDeviceLabel(d, i)}
-                                        </Tag>
-                                    ))
-                                ) : (
-                                    <Text style={{ fontSize: 12, color: C.muted }}>
-                                        لا توجد كامرات محلية مكتشفة حاليًا
+                                <div style={{ marginTop: 8 }}>
+                                    <Text style={{ fontSize: 12, color: currentDeviceId ? '#dbeafe' : '#fee2e2' }}>
+                                        <LinkOutlined style={{ marginLeft: 4 }} />
+                                        الجهاز الحالي: {currentDeviceId ? `#${currentDeviceId}` : 'غير محدد'}
                                     </Text>
-                                )}
+                                </div>
+
+                                <div className="devices-strip">
+                                    {localDevices.length > 0 ? (
+                                        localDevices.map((d, i) => (
+                                            <Tag key={d.deviceId || `${d.kind}-${i}`} className="device-chip" color="blue">
+                                                <CameraOutlined style={{ marginLeft: 4 }} />
+                                                [{i}] {getLocalDeviceLabel(d, i)}
+                                            </Tag>
+                                        ))
+                                    ) : (
+                                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>
+                                            لا توجد كامرات محلية مكتشفة حاليًا
+                                        </Text>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </Space>
 
-                    <Space size={10} wrap>
-                        {[
-                            { label: 'إجمالي', value: cameras.length, color: C.text, bg: 'var(--app-surface-2)' },
-                            { label: 'متاحة', value: activeAvailable, color: C.green, bg: 'var(--app-soft-green)' },
-                            { label: 'غير نشطة', value: unavailable, color: C.red, bg: 'var(--app-soft-red)' },
-                            { label: 'قيد التحقق', value: checking, color: C.amber, bg: 'var(--app-soft-amber)' },
-                            { label: 'متوقفة', value: stopped, color: C.muted, bg: 'var(--app-surface-2)' },
-                            { label: 'محلية', value: local, color: C.blue, bg: 'var(--app-soft-blue)' },
-                            { label: 'IP / URL', value: ip, color: C.purple, bg: 'var(--app-soft-purple)' },
-                        ].map(s => (
-                            <div
-                                key={s.label}
-                                style={{
-                                    background: s.bg,
-                                    border: `1px solid ${C.border}`,
-                                    borderRadius: 12,
-                                    padding: '6px 16px',
-                                    textAlign: 'center',
-                                    minWidth: 78,
-                                }}
-                            >
-                                <div style={{ fontSize: 18, fontWeight: 700, color: s.color, lineHeight: 1 }}>
-                                    {s.value}
-                                </div>
-                                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
-                                    {s.label}
-                                </div>
-                            </div>
-                        ))}
-
-                        <Tooltip title="تحديث">
+                        <div className="hero-actions">
                             <Button
+                                className="hero-btn"
                                 icon={<ReloadOutlined spin={isFetching} />}
                                 onClick={() => refetch()}
-                                style={{ height: 38, borderRadius: 10 }}
-                            />
-                        </Tooltip>
+                            >
+                                تحديث
+                            </Button>
 
-                        <Button
-                            type="primary"
-                            icon={<PlayCircleOutlined />}
-                            onClick={openMonitor}
-                            loading={openingMonitor}
-                            style={{
-                                height: 38,
-                                borderRadius: 10,
-                                background: '#16a34a',
-                                borderColor: '#16a34a',
-                            }}
-                        >
-                            المراقبة المباشرة
-                        </Button>
+                            <Button
+                                className="hero-btn"
+                                type="primary"
+                                icon={<PlayCircleOutlined />}
+                                onClick={openMonitor}
+                                loading={openingMonitor}
+                                style={{ background: '#16a34a', borderColor: '#16a34a' }}
+                            >
+                                المراقبة المباشرة
+                            </Button>
 
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={openCreate}
-                            style={{ height: 38, borderRadius: 10 }}
-                        >
-                            إضافة كاميرا
-                        </Button>
-                    </Space>
+                            <Button className="hero-btn" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                                إضافة كاميرا
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="stats-strip">
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="إجمالي"
+                            value={cameras.length}
+                            color={C.text}
+                            bg="var(--app-surface-2)"
+                            border={C.border}
+                            icon={<VideoCameraOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="متاحة"
+                            value={activeAvailable}
+                            color={C.green}
+                            bg="var(--app-soft-green)"
+                            border="#bbf7d0"
+                            icon={<CheckCircleOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="غير نشطة"
+                            value={unavailable}
+                            color={C.red}
+                            bg="var(--app-soft-red)"
+                            border="#fecaca"
+                            icon={<WarningOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="قيد التحقق"
+                            value={checking}
+                            color={C.amber}
+                            bg="var(--app-soft-amber)"
+                            border="#fde68a"
+                            icon={<ClockCircleOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="متوقفة"
+                            value={stopped}
+                            color={C.muted}
+                            bg="var(--app-surface-2)"
+                            border={C.border}
+                            icon={<StopOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="محلية"
+                            value={local}
+                            color={C.blue}
+                            bg="var(--app-soft-blue)"
+                            border="#bfdbfe"
+                            icon={<HomeOutlined />}
+                        />
+                    </div>
+
+                    <div className="stat-mini-wrap">
+                        <StatCard
+                            label="IP / URL"
+                            value={ip}
+                            color={C.purple}
+                            bg="var(--app-soft-purple)"
+                            border="#ddd6fe"
+                            icon={<WifiOutlined />}
+                        />
+                    </div>
                 </div>
 
                 {!currentDeviceId && (
                     <Alert
-                        style={{ marginBottom: 16 }}
+                        style={{ marginBottom: 16, borderRadius: 16 }}
                         type="warning"
                         showIcon
                         message="لم يتم اختيار الجهاز الحالي بعد"
@@ -1048,52 +1018,63 @@ export default function CamerasManagePage() {
                     />
                 )}
 
-                {isLoading ? (
-                    <div style={{ textAlign: 'center', padding: 100 }}>
-                        <Spin size="large" />
-                        <br />
-                        <br />
-                        <Text type="secondary">جاري تحميل الكاميرات…</Text>
+                <div className="surface-card">
+                    <div className="surface-card-head">
+                        <Space size={10}>
+                            <Title level={4} style={{ margin: 0 }}>
+                                سجل الكاميرات
+                            </Title>
+                            <ApartmentOutlined style={{ color: '#2563eb' }} />
+                        </Space>
+
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {cameras.length} كاميرا
+                        </Text>
                     </div>
-                ) : cameras.length === 0 ? (
-                    <div
-                        style={{
-                            textAlign: 'center',
-                            padding: 80,
-                            background: C.white,
-                            borderRadius: 18,
-                            border: `1px solid ${C.border}`,
-                        }}
-                    >
-                        <VideoCameraOutlined style={{ fontSize: 72, color: '#cbd5e1' }} />
-                        <br />
-                        <br />
-                        <Title level={4} style={{ color: C.muted }}>لا توجد كاميرات</Title>
-                        <Text type="secondary">ابدأ بإضافة أول كاميرا للشبكة</Text>
-                        <br />
-                        <br />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                            إضافة أول كاميرا
-                        </Button>
+
+                    <div className="surface-card-body">
+                        {isLoading ? (
+                            <div style={{ textAlign: 'center', padding: 100 }}>
+                                <Spin size="large" />
+                                <br />
+                                <br />
+                                <Text type="secondary">جاري تحميل الكاميرات…</Text>
+                            </div>
+                        ) : cameras.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 70 }}>
+                                <VideoCameraOutlined style={{ fontSize: 72, color: '#cbd5e1' }} />
+                                <br />
+                                <br />
+                                <Title level={4} style={{ color: C.muted }}>
+                                    لا توجد كاميرات
+                                </Title>
+                                <Text type="secondary">ابدأ بإضافة أول كاميرا للشبكة</Text>
+                                <br />
+                                <br />
+                                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                                    إضافة أول كاميرا
+                                </Button>
+                            </div>
+                        ) : (
+                            <Row gutter={[16, 16]}>
+                                {cameras.map((cam, idx) => (
+                                    <Col key={cam.cameraId} xs={24} sm={12} md={8} xl={6}>
+                                        <CameraCard
+                                            cam={cam}
+                                            idx={idx}
+                                            onEdit={() => openEdit(cam.cameraId)}
+                                            onDelete={() => deleteCamera(cam.cameraId)}
+                                            onToggle={() => toggleCamera(cam)}
+                                            toggling={togglingId === cam.cameraId}
+                                            availability={availabilityMap[cam.cameraId]}
+                                            localDevices={localDevices}
+                                        />
+                                    </Col>
+                                ))}
+                            </Row>
+                        )}
                     </div>
-                ) : (
-                    <Row gutter={[16, 16]}>
-                        {cameras.map((cam, idx) => (
-                            <Col key={cam.cameraId} xs={24} sm={12} md={8} lg={6}>
-                                <CameraCard
-                                    cam={cam}
-                                    idx={idx}
-                                    onEdit={() => openEdit(cam.cameraId)}
-                                    onDelete={() => deleteCamera(cam.cameraId)}
-                                    onToggle={() => toggleCamera(cam)}
-                                    toggling={togglingId === cam.cameraId}
-                                    availability={availabilityMap[cam.cameraId]}
-                                    localDevices={localDevices}
-                                />
-                            </Col>
-                        ))}
-                    </Row>
-                )}
+                </div>
             </div>
 
             <CameraFormModal
