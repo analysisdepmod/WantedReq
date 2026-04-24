@@ -1,5 +1,5 @@
 ﻿import { AddUser, ITransilation, IUsersCounters, OfficerInfoDto, SpiAttitudeDto, SpiAttitudeDtoview, SpiUnitDTO, SubMangeMinistrysDto, TargetDto, TargetsMangeMinistryDto, TransInitailValue, User, UsersCardData } from "./GeneralInterface";
-import axios from ".././api";
+import axios, { BASIC_URL1 } from ".././api";
 import { FormInstance } from "antd/lib";
 import { ChangeEvent } from "react";
 import { AppDispatch } from "../../app/store";
@@ -8,6 +8,12 @@ import { message } from "antd";
 import { setModal } from "../../app/reducers/modalSlice";
 import { iconMap, titleMap } from "./varaibles";
 import debounce from 'lodash.debounce';
+
+const API_ORIGIN = BASIC_URL1.replace(/\/api\/?$/, '');
+export const buildImgUrl = (p?: string) => {
+    if (!p) return '';
+    return new URL(p, API_ORIGIN).toString();
+};
 
 //export const Translate = (e: ChangeEvent<HTMLInputElement>, form: FormInstance) => {
 

@@ -1,22 +1,36 @@
 ﻿import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Badge, Tooltip, Button, Dropdown, Avatar, Typography } from 'antd';
 import {
-    MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
-    UserOutlined, VideoCameraOutlined, HomeOutlined,
-    BulbOutlined, BulbFilled, BellOutlined,
-    SearchOutlined, SettingOutlined, CheckCircleOutlined,
-    UsergroupAddOutlined, GlobalOutlined, UserSwitchOutlined,
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
+    LogoutOutlined,
+    UserOutlined,
+    VideoCameraOutlined,
+    HomeOutlined,
+    BulbOutlined,
+    BulbFilled,
+    BellOutlined,
+    SearchOutlined,
+    SettingOutlined,
+    CheckCircleOutlined,
+    UsergroupAddOutlined,
+    GlobalOutlined,
+    UserSwitchOutlined,
     ThunderboltOutlined,
+    PlusOutlined,
+    ControlOutlined,
 } from '@ant-design/icons';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../app/store';
 import { logout } from '../../app/reducers/authSlice';
 import { setModal } from '../../app/reducers/modalSlice';
 import { RULES } from '../Interfaces/roles';
 import {
-    getChatConnection, getNotificationConnection,
-    getPresenceConnection, getRecognitionConnection,
+    getChatConnection,
+    getNotificationConnection,
+    getPresenceConnection,
+    getRecognitionConnection,
     ensureStart,
 } from '../signalr/signalrConnections';
 import { useNotifications } from '../hooks/useNotifications';
@@ -28,112 +42,186 @@ import arEG from 'antd/locale/ar_EG';
 import enUs from 'antd/locale/en_Us';
 import { changeDiraction } from '../../app/reducers/settingSlice';
 import { useTranslation } from 'react-i18next';
-import { PlusOutlined } from '@ant-design/icons';
 
 const { Sider, Content, Footer } = Layout;
 const { Text } = Typography;
 
-const HEADER_HEIGHT = 62;
+const HEADER_HEIGHT = 70;
 const FOOTER_HEIGHT = 48;
-
-const LIGHT = {
-    bg: '#f4f6fb',
-    sidebar: '#ffffff',
-    header: '#ffffff',
-    border: '#e4e9f2',
-    text: '#0f172a',
-    muted: '#64748b',
-    accent: '#2563eb',
-    hover: '#f1f5f9',
-    active: '#eff6ff',
-    footer: '#f8fafc',
-};
-const DARK = {
-    bg: '#07090f',
-    sidebar: '#0d1117',
-    header: '#0d1117',
-    border: '#1a2332',
-    text: '#e2e8f0',
-    muted: '#64748b',
-    accent: '#3b82f6',
-    hover: '#111827',
-    active: '#1e3a5f',
-    footer: '#0d1117',
-};
+const THEME_STORAGE_KEY = 'app-theme-mode';
 
 const initial = { numberWord: 0 };
 
-function NavItem({ to, icon, label, badge, isDark, collapsed, onClick }: {
-    to?: string; icon: React.ReactNode; label: string;
-    badge?: number; isDark: boolean; collapsed: boolean;
+const applyThemeMode = (isDark: boolean) => {
+    const theme = isDark ? 'dark' : 'light';
+
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    document.body.setAttribute('data-bs-theme', theme);
+
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
+
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+};
+
+const readInitialTheme = (): boolean => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+
+    return (
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.getAttribute('data-theme') === 'dark' ||
+        document.documentElement.getAttribute('data-bs-theme') === 'dark' ||
+        document.body.getAttribute('data-bs-theme') === 'dark' ||
+        document.documentElement.classList.contains('dark') ||
+        document.body.classList.contains('dark')
+    );
+};
+
+function SectionLabel({
+    label,
+    collapsed,
+}: {
+    label: string;
+    collapsed: boolean;
+}) {
+    if (collapsed) return <div style={{ height: 10 }} />;
+
+    return (
+        <div
+            style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: 'var(--app-muted)',
+                letterSpacing: 1.2,
+                padding: '14px 14px 6px',
+                textTransform: 'uppercase',
+            }}
+        >
+            {label}
+        </div>
+    );
+}
+
+function NavItem({
+    to,
+    icon,
+    label,
+    badge,
+    collapsed,
+    onClick,
+}: {
+    to?: string;
+    icon: ReactNode;
+    label: string;
+    badge?: number;
+    collapsed: boolean;
     onClick?: () => void;
 }) {
     const location = useLocation();
-    const T = isDark ? DARK : LIGHT;
     const isActive = to ? location.pathname === to || location.pathname.startsWith(to + '/') : false;
 
-    const inner = (
+    const content = (
         <div
             onClick={onClick}
             style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                padding: collapsed ? '10px 0' : '10px 14px',
-                borderRadius: 10,
-                marginBottom: 2,
+                padding: collapsed ? '12px 0' : '12px 14px',
+                borderRadius: 14,
+                marginBottom: 6,
                 cursor: 'pointer',
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                background: isActive ? T.active : 'transparent',
-                borderRight: isActive ? `3px solid ${T.accent}` : '3px solid transparent',
-                color: isActive ? T.accent : T.text,
-                transition: 'all .18s',
+                background: isActive ? 'var(--app-soft-blue)' : 'transparent',
+                border: `1px solid ${isActive ? 'color-mix(in srgb, var(--app-accent) 18%, transparent)' : 'transparent'}`,
+                color: isActive ? 'var(--app-accent)' : 'var(--app-text)',
+                transition: 'all .18s ease',
+                position: 'relative',
+                overflow: 'hidden',
             }}
-            onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = T.hover; }}
-            onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+            onMouseEnter={(e) => {
+                if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'var(--app-hover)';
+            }}
+            onMouseLeave={(e) => {
+                if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+            }}
         >
-            <span style={{ fontSize: 17, flexShrink: 0, color: isActive ? T.accent : T.muted }}>
+            {isActive && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        insetInlineStart: 0,
+                        top: 8,
+                        bottom: 8,
+                        width: 3,
+                        borderRadius: 999,
+                        background: 'var(--app-accent)',
+                    }}
+                />
+            )}
+
+            <span
+                style={{
+                    width: collapsed ? 34 : 30,
+                    height: collapsed ? 34 : 30,
+                    borderRadius: 10,
+                    background: isActive ? 'color-mix(in srgb, var(--app-accent) 10%, transparent)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    color: isActive ? 'var(--app-accent)' : 'var(--app-muted)',
+                    fontSize: 16,
+                }}
+            >
                 {icon}
             </span>
 
             {!collapsed && (
-                <Text style={{
-                    fontSize: 13,
-                    fontWeight: isActive ? 600 : 400,
-                    color: 'inherit',
-                    flex: 1,
-                    whiteSpace: 'nowrap'
-                }}>
+                <Text
+                    style={{
+                        fontSize: 13,
+                        fontWeight: isActive ? 700 : 500,
+                        color: 'inherit',
+                        flex: 1,
+                        whiteSpace: 'nowrap',
+                    }}
+                >
                     {label}
                 </Text>
             )}
 
-            {!collapsed && !!badge && badge > 0 && <Badge count={badge} size="small" />}
+            {!collapsed && !!badge && badge > 0 && (
+                <Badge
+                    count={badge}
+                    size="small"
+                    style={{
+                        boxShadow: '0 8px 18px rgba(239,68,68,.18)',
+                    }}
+                />
+            )}
         </div>
     );
 
-    const node = to
-        ? <Link to={to} style={{ textDecoration: 'none' }}>{inner}</Link>
-        : inner;
+    const node = to ? (
+        <Link to={to} style={{ textDecoration: 'none' }}>
+            {content}
+        </Link>
+    ) : (
+        content
+    );
 
-    return collapsed ? <Tooltip title={label} placement="left">{node}</Tooltip> : node;
-}
-
-function SectionLabel({ label, isDark, collapsed }: { label: string; isDark: boolean; collapsed: boolean }) {
-    if (collapsed) return <div style={{ height: 14 }} />;
-    const T = isDark ? DARK : LIGHT;
-
-    return (
-        <div style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: T.muted,
-            letterSpacing: 1.5,
-            padding: '14px 16px 5px',
-            textTransform: 'uppercase',
-        }}>
-            {label}
-        </div>
+    return collapsed ? (
+        <Tooltip title={label} placement="left">
+            {node}
+        </Tooltip>
+    ) : (
+        node
     );
 }
 
@@ -149,14 +237,18 @@ export default function MainLayout() {
     const { userRoles, basicUserInfo } = useSelector((s: RootState) => s.auth.loginResponse);
 
     const [collapsed, setCollapsed] = useState(false);
-    const [isDark, setIsDark] = useState(false);
-    const T = isDark ? DARK : LIGHT;
+    const [isDark, setIsDark] = useState<boolean>(() => readInitialTheme());
 
     const isAdmin = userRoles?.includes(RULES.Admin);
     const isManager = userRoles?.includes(RULES.Manager);
 
     const { data: notifications = [] } = useNotifications();
     const { events: recEvents, isConnected: recConnected } = useSignalRRecognition();
+
+    const direction = arlang ? 'rtl' : 'ltr';
+    const sidebarInlineStart = arlang ? 'right' : 'left';
+    const contentMarginRight = arlang ? (collapsed ? 74 : 254) : 0;
+    const contentMarginLeft = arlang ? 0 : (collapsed ? 74 : 254);
 
     useEffect(() => {
         ensureStart(getChatConnection(), 'ChatHub');
@@ -168,6 +260,17 @@ export default function MainLayout() {
     useEffect(() => {
         i18n.changeLanguage(locale);
     }, [i18n, locale]);
+
+    useEffect(() => {
+        applyThemeMode(isDark);
+    }, [isDark]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('dir', direction);
+        document.body.setAttribute('dir', direction);
+        document.documentElement.lang = arlang ? 'ar' : 'en';
+        document.body.style.direction = direction;
+    }, [direction, arlang]);
 
     useEffect(() => {
         contentScrollRef.current?.scrollTo({
@@ -183,46 +286,71 @@ export default function MainLayout() {
 
     const toggleLang = () => {
         if (arlang) {
-            dispatch(changeDiraction({
-                dir: 'ltr',
-                locale: 'en',
-                applocale: { enUs },
-                arlang: false
-            }));
+            dispatch(
+                changeDiraction({
+                    dir: 'ltr',
+                    locale: 'en',
+                    applocale: { enUs },
+                    arlang: false,
+                }),
+            );
         } else {
-            dispatch(changeDiraction({
-                dir: 'rtl',
-                locale: 'ar',
-                applocale: { arEG },
-                arlang: true
-            }));
+            dispatch(
+                changeDiraction({
+                    dir: 'rtl',
+                    locale: 'ar',
+                    applocale: { arEG },
+                    arlang: true,
+                }),
+            );
         }
     };
 
-    const openSettings = () => dispatch(setModal({
-        dialogIcon: <PlusOutlined />,
-        isOpen: true,
-        content: <Settings row={initial} flag={1} />,
-        width: 1100,
-        height: 900,
-        title: 'الإعدادات',
-    }));
+    const openSettings = () =>
+        dispatch(
+            setModal({
+                dialogIcon: <PlusOutlined />,
+                isOpen: true,
+                content: <Settings row={initial} flag={1} />,
+                width: 1100,
+                height: 900,
+                title: 'الإعدادات',
+            }),
+        );
 
     const globalCSS = `
       html, body, #root {
         height: 100%;
         margin: 0;
         overflow: hidden;
+        background: var(--app-page-bg);
       }
 
-      * { transition: background-color .22s, color .22s, border-color .22s; }
+      * {
+        transition: background-color .22s, color .22s, border-color .22s, box-shadow .22s;
+        box-sizing: border-box;
+      }
 
-      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 999px; }
 
       .ant-layout {
-        background: ${T.bg} !important;
+        background: var(--app-page-bg) !important;
+      }
+
+      .mainlayout-sider .ant-layout-sider-children {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+      }
+
+      .mainlayout-sidebar-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
     `;
 
@@ -233,12 +361,11 @@ export default function MainLayout() {
             <Layout
                 style={{
                     height: '100vh',
-                    background: T.bg,
-                    direction: arlang ? 'rtl' : 'ltr',
+                    background: 'var(--app-page-bg)',
+                    direction,
                     overflow: 'hidden',
                 }}
             >
-                {/* HEADER */}
                 <div
                     style={{
                         position: 'fixed',
@@ -247,33 +374,58 @@ export default function MainLayout() {
                         right: 0,
                         zIndex: 1000,
                         height: HEADER_HEIGHT,
-                        background: T.header,
-                        borderBottom: `1px solid ${T.border}`,
-                        boxShadow: '0 1px 8px rgba(0,0,0,.06)',
+                        background: 'var(--app-header-bg)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        borderBottom: '1px solid var(--app-border)',
                         display: 'flex',
                         alignItems: 'center',
-                        padding: '0 20px',
+                        padding: '0 16px',
                         justifyContent: 'space-between',
+                        boxShadow: '0 6px 24px rgba(15,23,42,.06)',
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                         <img
                             src="/logo.png"
-                            height={44}
-                            width={44}
-                            style={{ borderRadius: 10, flexShrink: 0 }}
+                            height={46}
+                            width={46}
+                            style={{ borderRadius: 14, flexShrink: 0, objectFit: 'cover' }}
                             alt=""
                         />
-                        <div>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: T.text, lineHeight: 1.2 }}>
+
+                        <div style={{ minWidth: 0 }}>
+                            <div
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 900,
+                                    color: 'var(--app-text)',
+                                    lineHeight: 1.2,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
                                 {basicUserInfo?.unitName ?? 'نظام التعرف على الأشخاص'}
                             </div>
-                            <div style={{ fontSize: 11, color: T.muted }}>نظام التعرف الأمني الذكي</div>
+                            <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 3 }}>
+                                نظام التعرف الأمني الذكي
+                            </div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '6px 10px',
+                                borderRadius: 999,
+                                background: 'var(--app-surface)',
+                                border: '1px solid var(--app-border)',
+                            }}
+                        >
                             <span
                                 style={{
                                     width: 8,
@@ -281,9 +433,12 @@ export default function MainLayout() {
                                     borderRadius: '50%',
                                     display: 'inline-block',
                                     background: recConnected ? '#22c55e' : '#ef4444',
+                                    boxShadow: recConnected
+                                        ? '0 0 0 4px rgba(34,197,94,.12)'
+                                        : '0 0 0 4px rgba(239,68,68,.12)',
                                 }}
                             />
-                            <Text style={{ fontSize: 11, color: T.muted }}>
+                            <Text style={{ fontSize: 11, color: 'var(--app-muted)' }}>
                                 {recConnected ? 'متصل' : 'منقطع'}
                             </Text>
                         </div>
@@ -292,13 +447,14 @@ export default function MainLayout() {
                             <div
                                 style={{
                                     fontSize: 11,
-                                    fontWeight: 700,
-                                    color: '#16a34a',
-                                    background: '#dcfce7',
-                                    padding: '2px 10px',
-                                    borderRadius: 20,
+                                    fontWeight: 800,
+                                    color: '#15803d',
+                                    background: 'var(--app-soft-green)',
+                                    padding: '6px 12px',
+                                    borderRadius: 999,
                                     border: '1px solid #bbf7d0',
                                     cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
                                 }}
                                 onClick={() => navigate('/recognition/results')}
                             >
@@ -313,12 +469,14 @@ export default function MainLayout() {
                                 type="text"
                                 shape="circle"
                                 icon={
-                                    isDark
-                                        ? <BulbFilled style={{ color: '#f59e0b', fontSize: 18 }} />
-                                        : <BulbOutlined style={{ color: T.muted, fontSize: 18 }} />
+                                    isDark ? (
+                                        <BulbFilled style={{ color: '#f59e0b', fontSize: 18 }} />
+                                    ) : (
+                                        <BulbOutlined style={{ color: 'var(--app-muted)', fontSize: 18 }} />
+                                    )
                                 }
-                                onClick={() => setIsDark(v => !v)}
-                                style={{ background: T.hover, border: 'none' }}
+                                onClick={() => setIsDark((v) => !v)}
+                                style={{ background: 'var(--app-hover)', border: 'none' }}
                             />
                         </Tooltip>
 
@@ -326,9 +484,9 @@ export default function MainLayout() {
                             <Button
                                 type="text"
                                 shape="circle"
-                                icon={<GlobalOutlined style={{ color: T.muted, fontSize: 16 }} />}
+                                icon={<GlobalOutlined style={{ color: 'var(--app-muted)', fontSize: 16 }} />}
                                 onClick={toggleLang}
-                                style={{ background: T.hover, border: 'none' }}
+                                style={{ background: 'var(--app-hover)', border: 'none' }}
                             />
                         </Tooltip>
 
@@ -337,8 +495,8 @@ export default function MainLayout() {
                                 <Button
                                     type="text"
                                     shape="circle"
-                                    icon={<BellOutlined style={{ color: T.muted, fontSize: 16 }} />}
-                                    style={{ background: T.hover, border: 'none' }}
+                                    icon={<BellOutlined style={{ color: 'var(--app-muted)', fontSize: 16 }} />}
+                                    style={{ background: 'var(--app-hover)', border: 'none' }}
                                 />
                             </Badge>
                         </Tooltip>
@@ -346,10 +504,21 @@ export default function MainLayout() {
                         <Dropdown
                             menu={{
                                 items: [
-                                    { key: 's', label: 'الإعدادات', icon: <SettingOutlined />, onClick: openSettings },
+                                    {
+                                        key: 's',
+                                        label: 'الإعدادات',
+                                        icon: <SettingOutlined />,
+                                        onClick: openSettings,
+                                    },
                                     { type: 'divider' },
-                                    { key: 'l', label: 'تسجيل الخروج', icon: <LogoutOutlined />, danger: true, onClick: handleLogout },
-                                ]
+                                    {
+                                        key: 'l',
+                                        label: 'تسجيل الخروج',
+                                        icon: <LogoutOutlined />,
+                                        danger: true,
+                                        onClick: handleLogout,
+                                    },
+                                ],
                             }}
                             trigger={['click']}
                         >
@@ -359,37 +528,59 @@ export default function MainLayout() {
                                     alignItems: 'center',
                                     gap: 8,
                                     cursor: 'pointer',
-                                    padding: '4px 10px',
-                                    borderRadius: 10,
-                                    background: T.hover,
+                                    padding: '5px 10px',
+                                    borderRadius: 14,
+                                    background: 'var(--app-hover)',
+                                    border: '1px solid var(--app-border)',
                                 }}
                             >
-                                <Avatar size={30} icon={<UserOutlined />} style={{ background: '#2563eb' }} />
-                                <div style={{ lineHeight: 1.3 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
+                                <Avatar
+                                    size={32}
+                                    icon={<UserOutlined />}
+                                    style={{
+                                        background: 'var(--app-accent)',
+                                        flexShrink: 0,
+                                    }}
+                                />
+
+                                <div style={{ lineHeight: 1.25 }}>
+                                    <div
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            color: 'var(--app-text)',
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    >
                                         {basicUserInfo?.rankName} / {basicUserInfo?.userName}
                                     </div>
-                                    <div style={{ fontSize: 10, color: T.muted }}>المنصب</div>
+                                    <div style={{ fontSize: 10, color: 'var(--app-muted)' }}>المنصب</div>
                                 </div>
                             </div>
                         </Dropdown>
 
-                        <img src="/wanted.png" height={44} width={44} style={{ borderRadius: 10 }} alt="" />
+                        <img
+                            src="/wanted.png"
+                            height={42}
+                            width={42}
+                            style={{ borderRadius: 12, objectFit: 'cover' }}
+                            alt=""
+                        />
                     </div>
                 </div>
 
-                {/* BODY */}
                 <Layout
                     style={{
                         marginTop: HEADER_HEIGHT,
                         height: `calc(100vh - ${HEADER_HEIGHT}px)`,
-                        background: T.bg,
+                        background: 'var(--app-page-bg)',
                         overflow: 'hidden',
                     }}
                 >
                     <Sider
-                        width={240}
-                        collapsedWidth={64}
+                        className="mainlayout-sider"
+                        width={254}
+                        collapsedWidth={74}
                         collapsed={collapsed}
                         trigger={null}
                         collapsible
@@ -397,75 +588,126 @@ export default function MainLayout() {
                             position: 'fixed',
                             top: HEADER_HEIGHT,
                             bottom: 0,
+                            [sidebarInlineStart]: 0,
                             zIndex: 900,
-                            background: T.sidebar,
+                            background: 'var(--app-sidebar-bg)',
                             overflow: 'hidden',
-                            borderLeft: arlang ? 'none' : `1px solid ${T.border}`,
-                            borderRight: arlang ? `1px solid ${T.border}` : 'none',
+                            borderLeft: arlang ? 'none' : '1px solid var(--app-border)',
+                            borderRight: arlang ? '1px solid var(--app-border)' : 'none',
                             display: 'flex',
                             flexDirection: 'column',
+                            boxShadow: arlang
+                                ? '8px 0 28px rgba(15,23,42,.04)'
+                                : '-8px 0 28px rgba(15,23,42,.04)',
                         }}
                     >
-                        <div style={{ padding: '10px 8px', borderBottom: `1px solid ${T.border}` }}>
+                        <div
+                            style={{
+                                padding: '12px 10px 8px',
+                                borderBottom: '1px solid var(--app-border)',
+                            }}
+                        >
                             <Button
                                 type="text"
                                 block
                                 icon={
-                                    collapsed
-                                        ? <MenuUnfoldOutlined style={{ color: T.muted }} />
-                                        : <MenuFoldOutlined style={{ color: T.muted }} />
+                                    collapsed ? (
+                                        <MenuUnfoldOutlined style={{ color: 'var(--app-muted)' }} />
+                                    ) : (
+                                        <MenuFoldOutlined style={{ color: 'var(--app-muted)' }} />
+                                    )
                                 }
-                                onClick={() => setCollapsed(v => !v)}
-                                style={{ background: T.hover, border: 'none', borderRadius: 8 }}
+                                onClick={() => setCollapsed((v) => !v)}
+                                style={{
+                                    background: 'var(--app-hover)',
+                                    border: '1px solid var(--app-border)',
+                                    borderRadius: 12,
+                                    height: 40,
+                                }}
                             />
                         </div>
 
-                        <div style={{ flex: 1, padding: '8px', overflowY: 'auto', minHeight: 0 }}>
-                            <SectionLabel label="الرئيسية" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/" icon={<HomeOutlined />} label="الصفحة الرئيسية" isDark={isDark} collapsed={collapsed} />
+                        <div
+                            className="mainlayout-sidebar-scroll"
+                            style={{
+                                flex: 1,
+                                padding: '8px 8px 10px',
+                                overflowY: 'auto',
+                                minHeight: 0,
+                            }}
+                        >
+                            <SectionLabel label="الرئيسية" collapsed={collapsed} />
+                            <NavItem
+                                to="/"
+                                icon={<HomeOutlined />}
+                                label="الصفحة الرئيسية"
+                                collapsed={collapsed}
+                            />
 
-                            <SectionLabel label="إدارة بيانات الأشخاص" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/Indexpersons" icon={<UsergroupAddOutlined />} label="بيانات الأشخاص" isDark={isDark} collapsed={collapsed} />
-                            
+                            <SectionLabel label="إدارة بيانات الأشخاص" collapsed={collapsed} />
+                            <NavItem
+                                to="/Indexpersons"
+                                icon={<UsergroupAddOutlined />}
+                                label="بيانات الأشخاص"
+                                collapsed={collapsed}
+                            />
 
-                            <SectionLabel label="التعرف" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/RecognitionPage" icon={<SearchOutlined />} label="التعرف من خلال صور" isDark={isDark} collapsed={collapsed} />
+                            <SectionLabel label="التعرف" collapsed={collapsed} />
+                            <NavItem
+                                to="/RecognitionPage"
+                                icon={<SearchOutlined />}
+                                label="التعرف من خلال صور"
+                                collapsed={collapsed}
+                            />
                             <NavItem
                                 to="/recognition/results"
                                 icon={<CheckCircleOutlined />}
                                 label="سجل التعرف"
                                 badge={recEvents.length}
-                                isDark={isDark}
                                 collapsed={collapsed}
                             />
 
-                            <SectionLabel label="الكاميرات" isDark={isDark} collapsed={collapsed} />
-                            <NavItem to="/cameras" icon={<VideoCameraOutlined />} label="إدارة الكاميرات" isDark={isDark} collapsed={collapsed} />
+                            <SectionLabel label="الكاميرات" collapsed={collapsed} />
+                            <NavItem
+                                to="/cameras"
+                                icon={<VideoCameraOutlined />}
+                                label="إدارة الكاميرات"
+                                collapsed={collapsed}
+                            />
                             <NavItem
                                 icon={<ThunderboltOutlined />}
                                 label="المراقبة المباشرة"
-                                isDark={isDark}
                                 collapsed={collapsed}
                                 onClick={() => {
                                     window.open('/cameras/live', '_blank', 'noopener');
                                     setTimeout(() => window.open('/cameras/results', '_blank', 'noopener'), 300);
                                 }}
                             />
-                            <NavItem to="/cameras/monitor" icon={<VideoCameraOutlined />} label="ضبط الجهاز مع الكامرات" isDark={isDark} collapsed={collapsed} />
+                            <NavItem
+                                to="/cameras/monitor"
+                                icon={<ControlOutlined />}
+                                label="ضبط الجهاز مع الكامرات"
+                                collapsed={collapsed}
+                            />
+
                             {(isAdmin || isManager) && (
                                 <>
-                                    <SectionLabel label="المستخدمين والصلاحيات" isDark={isDark} collapsed={collapsed} />
-                                    <NavItem to="/Users" icon={<UserSwitchOutlined />} label="إدارة المستخدمين" isDark={isDark} collapsed={collapsed} />
+                                    <SectionLabel label="المستخدمين والصلاحيات" collapsed={collapsed} />
+                                    <NavItem
+                                        to="/Users"
+                                        icon={<UserSwitchOutlined />}
+                                        label="إدارة المستخدمين"
+                                        collapsed={collapsed}
+                                    />
                                 </>
                             )}
 
                             {isAdmin && (
                                 <>
-                                    <SectionLabel label="النظام" isDark={isDark} collapsed={collapsed} />
+                                    <SectionLabel label="النظام" collapsed={collapsed} />
                                     <NavItem
                                         icon={<SettingOutlined />}
                                         label="إعدادات النظام"
-                                        isDark={isDark}
                                         collapsed={collapsed}
                                         onClick={openSettings}
                                     />
@@ -475,21 +717,23 @@ export default function MainLayout() {
 
                         <div
                             style={{
-                                padding: '8px',
-                                borderTop: `1px solid ${T.border}`,
+                                padding: '10px 8px',
+                                borderTop: '1px solid var(--app-border)',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: 6,
+                                gap: 8,
                                 flexShrink: 0,
+                                background: 'var(--app-surface-2)',
                             }}
                         >
                             <ChatWidget currentUserId={currentUserId} />
+
                             <Button
                                 danger
                                 block
                                 icon={<LogoutOutlined />}
                                 onClick={handleLogout}
-                                style={{ borderRadius: 10, height: 36 }}
+                                style={{ borderRadius: 12, height: 40, fontWeight: 700 }}
                             >
                                 {!collapsed && 'خروج'}
                             </Button>
@@ -498,10 +742,10 @@ export default function MainLayout() {
 
                     <Content
                         style={{
-                            marginRight: arlang ? (collapsed ? 64 : 240) : 0,
-                            marginLeft: arlang ? 0 : (collapsed ? 64 : 240),
+                            marginRight: contentMarginRight,
+                            marginLeft: contentMarginLeft,
                             height: `calc(100vh - ${HEADER_HEIGHT}px)`,
-                            background: T.bg,
+                            background: 'var(--app-page-bg)',
                             transition: 'margin .22s',
                             display: 'flex',
                             flexDirection: 'column',
@@ -527,11 +771,11 @@ export default function MainLayout() {
                                 flexShrink: 0,
                                 height: FOOTER_HEIGHT,
                                 textAlign: 'center',
-                                background: T.footer,
-                                borderTop: `1px solid ${T.border}`,
-                                color: T.muted,
+                                background: 'var(--app-footer-bg)',
+                                borderTop: '1px solid var(--app-border)',
+                                color: 'var(--app-footer-text)',
                                 fontSize: 12,
-                                padding: '10px 24px',
+                                padding: '12px 24px',
                             }}
                         >
                             نظام التعرف الأمني الذكي © {new Date().getFullYear()}

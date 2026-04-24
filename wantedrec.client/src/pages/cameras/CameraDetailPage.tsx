@@ -2,61 +2,158 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Row, Col, Button, Typography, Space, Spin, Tag, Progress,
-    Image, Slider, Alert, message, Badge, Tooltip,
+    Row,
+    Col,
+    Button,
+    Typography,
+    Space,
+    Spin,
+    Tag,
+    Progress,
+    Image,
+    Slider,
+    Alert,
+    message,
+    Badge,
+    Tooltip,
+    Card,
+    Avatar,
+    Empty,
 } from 'antd';
 import {
-    VideoCameraOutlined, PlayCircleOutlined, PauseCircleOutlined,
-    StopOutlined, CheckCircleOutlined, CloseCircleOutlined,
-    EyeOutlined, UserOutlined, WarningOutlined, ArrowRightOutlined,
-    EnvironmentOutlined, WifiOutlined, FieldTimeOutlined,
+    VideoCameraOutlined,
+    PlayCircleOutlined,
+    PauseCircleOutlined,
+    StopOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    EyeOutlined,
+    UserOutlined,
+    WarningOutlined,
+    ArrowRightOutlined,
+    EnvironmentOutlined,
+    WifiOutlined,
+    FieldTimeOutlined,
     CameraOutlined,
+    ScanOutlined,
+    ThunderboltOutlined,
+    AimOutlined,
+    ClockCircleOutlined,
+    LinkOutlined,
+    SafetyOutlined,
+    ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { getCameraById, snapshotUrl } from '../../api/camerasApi';
 import { identifyFace } from '../../api/recognitionApi';
 import type { LiveRecognitionResultDto, RecognitionFaceDto } from '../../types/camera.types';
 import { detectCameraKind } from '../../types/camera.types';
+import {
+    DangerLevel,
+    DangerLevelLabel,
+    PersonSecurityStatus,
+    PersonSecurityStatusLabel,
+} from '../../types/person.types';
 
-const { Text } = Typography;
+const { Title, Text } = Typography;
 
-const CSS = `
-  @keyframes scanLine {
-    0%   { top:0%; }
-    100% { top:100%; }
-  }
-  @keyframes fadeIn {
-    from { opacity:0; transform:translateY(5px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  @keyframes liveDot {
-    0%,100% { opacity:1; }
-    50%      { opacity:.3; }
-  }
-  .face-card { border:1px solid #e6eaf0; border-radius:12px; padding:14px; margin-bottom:10px;
-               transition:border-color .2s; animation:fadeIn .3s ease both; background:var(--app-surface); }
-  .face-card.known { border-color:#b7eb8f; background:var(--app-soft-green); }
-  .face-card:hover { border-color:#1677ff; }
-`;
 
 const scoreColor = (s: number) =>
     s >= 0.8 ? '#52c41a' : s >= 0.6 ? '#faad14' : '#ff4d4f';
+
 const scoreLabel = (s: number) =>
     s >= 0.8 ? 'تطابق عالي' : s >= 0.6 ? 'تطابق متوسط' : 'تطابق ضعيف';
 
+const dangerTone: Record<number, { bg: string; border: string; color: string }> = {
+    [DangerLevel.None]: { bg: '#f8fafc', border: '#e2e8f0', color: '#475569' },
+    [DangerLevel.Low]: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
+    [DangerLevel.Medium]: { bg: '#fffbeb', border: '#fde68a', color: '#b45309' },
+    [DangerLevel.High]: { bg: '#fff7ed', border: '#fdba74', color: '#c2410c' },
+    [DangerLevel.Critical]: { bg: '#fff1f2', border: '#fecaca', color: '#dc2626' },
+};
+
+const securityTone: Record<number, { bg: string; border: string; color: string }> = {
+    [PersonSecurityStatus.Normal]: { bg: '#f8fafc', border: '#e2e8f0', color: '#475569' },
+    [PersonSecurityStatus.Suspect]: { bg: '#fff7ed', border: '#fdba74', color: '#c2410c' },
+    [PersonSecurityStatus.Wanted]: { bg: '#fff1f2', border: '#fecaca', color: '#dc2626' },
+    [PersonSecurityStatus.WantedAndSuspect]: { bg: '#fff1f2', border: '#fda4af', color: '#be123c' },
+    [PersonSecurityStatus.Arrested]: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+    [PersonSecurityStatus.Closed]: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d' },
+};
+
+function CompactStat({
+    label,
+    value,
+    color,
+    bg,
+    border,
+    icon,
+}: {
+    label: string;
+    value: string | number;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.ReactNode;
+}) {
+    return (
+        <div className="camera-compact-stat-card">
+            <div>
+                <div className="v" style={{ color }}>{value}</div>
+                <div className="l">{label}</div>
+            </div>
+
+            <div className="i" style={{ background: bg, borderColor: border, color }}>
+                {icon}
+            </div>
+        </div>
+    );
+}
+
+function Pill({
+    text,
+    tone,
+    icon,
+}: {
+    text: string;
+    tone?: { bg: string; border: string; color: string };
+    icon?: React.ReactNode;
+}) {
+    const t = tone ?? { bg: '#f8fafc', border: '#e2e8f0', color: '#475569' };
+    return (
+        <span className="pill" style={{ background: t.bg, borderColor: t.border, color: t.color }}>
+            {icon}
+            {text}
+        </span>
+    );
+}
+
+function isRiskyPerson(person: any): boolean {
+    if (!person) return false;
+    return !!person.hasActiveAlert || !!person.isArmedAndDangerous || (person.dangerLevel ?? DangerLevel.None) >= DangerLevel.High;
+}
+
 function FaceCard({ face }: { face: RecognitionFaceDto }) {
     const navigate = useNavigate();
+    const person = face.person as any;
+    const risky = face.isKnown && isRiskyPerson(person);
+    const securityStatus = (person?.securityStatus ?? PersonSecurityStatus.Normal) as PersonSecurityStatus;
+    const dangerLevel = (person?.dangerLevel ?? DangerLevel.None) as DangerLevel;
 
     return (
-        <div className={`face-card${face.isKnown ? ' known' : ''}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: face.isKnown ? 10 : 0 }}>
+        <div className={`face-card${face.isKnown ? ' known' : ''}${risky ? ' risky' : ''}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: face.isKnown ? 10 : 0, gap: 10, flexWrap: 'wrap' }}>
                 <Space size={8} align="start">
-                    {face.isKnown
-                        ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 15, marginTop: 2 }} />
-                        : <CloseCircleOutlined style={{ color: '#bfbfbf', fontSize: 15, marginTop: 2 }} />}
+                    {face.isKnown ? (
+                        <CheckCircleOutlined style={{ color: risky ? '#dc2626' : '#52c41a', fontSize: 15, marginTop: 2 }} />
+                    ) : (
+                        <CloseCircleOutlined style={{ color: '#bfbfbf', fontSize: 15, marginTop: 2 }} />
+                    )}
+
                     <div>
                         <Text strong style={{ fontSize: 13, display: 'block' }}>
                             {face.isKnown ? face.name : 'وجه غير معروف'}
                         </Text>
+
                         {face.isKnown && (
                             <Text style={{ color: scoreColor(face.score), fontSize: 11 }}>
                                 {scoreLabel(face.score)} — {Math.round(face.score * 100)}%
@@ -73,7 +170,7 @@ function FaceCard({ face }: { face: RecognitionFaceDto }) {
                             type="primary"
                             ghost
                             onClick={() => navigate(`/persons/${face.person!.personId}`)}
-                            style={{ borderRadius: 7, height: 26, fontSize: 11 }}
+                            style={{ borderRadius: 8, height: 28, fontSize: 11 }}
                         >
                             الملف
                         </Button>
@@ -82,52 +179,82 @@ function FaceCard({ face }: { face: RecognitionFaceDto }) {
             </div>
 
             {face.isKnown && face.person && (
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {face.primaryImageBase64 ? (
-                        <Image
-                            src={`data:image/jpeg;base64,${face.primaryImageBase64}`}
-                            style={{
-                                width: 54,
-                                height: 54,
-                                objectFit: 'cover',
-                                borderRadius: 8,
-                                flexShrink: 0,
-                                border: `2px solid ${scoreColor(face.score)}`,
-                            }}
-                            preview={false}
-                        />
-                    ) : (
-                        <div style={{
-                            width: 54,
-                            height: 54,
-                            borderRadius: 8,
-                            flexShrink: 0,
-                            background: 'var(--app-surface-2)',
-                            border: '1px solid var(--app-border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <UserOutlined style={{ color: '#bfbfbf', fontSize: 20 }} />
-                        </div>
-                    )}
-
-                    <div style={{ flex: 1 }}>
-                        {face.person.hasSuspectRecord && (
-                            <Tag color="red" style={{ marginBottom: 4, fontSize: 11 }}>
-                                <WarningOutlined style={{ marginLeft: 3 }} />
-                                مشتبه به
-                            </Tag>
+                <>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        {face.primaryImageBase64 ? (
+                            <Image
+                                src={`data:image/jpeg;base64,${face.primaryImageBase64}`}
+                                style={{
+                                    width: 58,
+                                    height: 58,
+                                    objectFit: 'cover',
+                                    borderRadius: 10,
+                                    flexShrink: 0,
+                                    border: `2px solid ${scoreColor(face.score)}`,
+                                }}
+                                preview={false}
+                            />
+                        ) : (
+                            <Avatar
+                                size={58}
+                                icon={<UserOutlined />}
+                                style={{
+                                    background: 'var(--app-surface-2)',
+                                    color: '#2563eb',
+                                    borderRadius: 10,
+                                    flexShrink: 0,
+                                }}
+                            />
                         )}
 
-                        <Progress
-                            percent={Math.round(face.score * 100)}
-                            strokeColor={scoreColor(face.score)}
-                            size="small"
-                            format={p => <span style={{ color: scoreColor(face.score), fontSize: 11 }}>{p}%</span>}
-                        />
+                        <div style={{ flex: 1 }}>
+                            <Space size={[6, 6]} wrap style={{ marginBottom: 8 }}>
+                                <Pill text={PersonSecurityStatusLabel[securityStatus]} tone={securityTone[securityStatus]} icon={<SafetyOutlined />} />
+                                <Pill text={DangerLevelLabel[dangerLevel]} tone={dangerTone[dangerLevel]} icon={<ExclamationCircleOutlined />} />
+                                {person.hasSuspectRecord && (
+                                    <Pill text="مشتبه به" tone={{ bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }} icon={<WarningOutlined />} />
+                                )}
+                            </Space>
+
+                            <Progress
+                                percent={Math.round(face.score * 100)}
+                                strokeColor={scoreColor(face.score)}
+                                size="small"
+                                format={(p) => <span style={{ color: scoreColor(face.score), fontSize: 11 }}>{p}%</span>}
+                            />
+                        </div>
                     </div>
-                </div>
+
+                    {(person.securityReason || person.alertInstructions || person.lastSeenLocation) && (
+                        <div style={{ marginTop: 12 }}>
+                            <div className="info-strip">
+                                {person.securityReason ? (
+                                    <div className="info-box">
+                                        <div className="k">سبب الإدراج الأمني</div>
+                                        <div className="v">{person.securityReason}</div>
+                                    </div>
+                                ) : null}
+
+                                {person.lastSeenLocation ? (
+                                    <div className="info-box">
+                                        <div className="k">مكان آخر ظهور</div>
+                                        <div className="v">{person.lastSeenLocation}</div>
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            {person.alertInstructions && (
+                                <Alert
+                                    style={{ marginTop: 10, borderRadius: 14 }}
+                                    type={risky ? 'error' : 'warning'}
+                                    showIcon
+                                    message="تعليمات عند المشاهدة"
+                                    description={person.alertInstructions}
+                                />
+                            )}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
@@ -136,6 +263,7 @@ function FaceCard({ face }: { face: RecognitionFaceDto }) {
 export default function CameraDetailPage() {
     const { id } = useParams<{ id: string }>();
     const cameraId = Number(id);
+    const navigate = useNavigate();
     const [msgApi, ctx] = message.useMessage();
 
     const { data: camera, isLoading: camLoading } = useQuery({
@@ -162,6 +290,8 @@ export default function CameraDetailPage() {
 
     const kind = camera ? detectCameraKind(camera as any) : 'local';
     const isLocalCamera = kind === 'local';
+    const totalFaces = liveResult?.totalFaces ?? 0;
+    const riskyFaces = liveResult?.faces.filter((f: any) => isRiskyPerson(f.person)).length ?? 0;
 
     const captureAndIdentify = useCallback(async () => {
         if (!camera) return;
@@ -180,17 +310,17 @@ export default function CameraDetailPage() {
                 canvas.height = video.videoHeight || 480;
                 canvas.getContext('2d')?.drawImage(video, 0, 0);
 
-                const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+                const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
                 if (!blob) return;
 
                 const data = await identifyFace(
                     new File([blob], 'frame.jpg', { type: 'image/jpeg' }),
-                    cameraId
+                    cameraId,
                 );
 
                 setLiveResult(data);
-                setFrameCount(c => c + 1);
-                if (data.knownFaces > 0) setTotalKnown(t => t + data.knownFaces);
+                setFrameCount((c) => c + 1);
+                if (data.knownFaces > 0) setTotalKnown((t) => t + data.knownFaces);
             } else {
                 const res = await fetch(snapshotUrl(cameraId), {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token') ?? ''}` },
@@ -201,19 +331,19 @@ export default function CameraDetailPage() {
                 const blob = await res.blob();
                 const objectUrl = URL.createObjectURL(blob);
 
-                setRemoteImageUrl(prev => {
+                setRemoteImageUrl((prev) => {
                     if (prev) URL.revokeObjectURL(prev);
                     return objectUrl;
                 });
 
                 const data = await identifyFace(
                     new File([blob], 'frame.jpg', { type: 'image/jpeg' }),
-                    cameraId
+                    cameraId,
                 );
 
                 setLiveResult(data);
-                setFrameCount(c => c + 1);
-                if (data.knownFaces > 0) setTotalKnown(t => t + data.knownFaces);
+                setFrameCount((c) => c + 1);
+                if (data.knownFaces > 0) setTotalKnown((t) => t + data.knownFaces);
             }
         } catch {
             // silent
@@ -235,7 +365,7 @@ export default function CameraDetailPage() {
 
     const stopCamera = useCallback(() => {
         stopLive();
-        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
 
         if (remoteImageUrl) {
@@ -254,10 +384,10 @@ export default function CameraDetailPage() {
         try {
             if (isLocalCamera) {
                 const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
-                tmp.getTracks().forEach(t => t.stop());
+                tmp.getTracks().forEach((t) => t.stop());
 
                 const all = await navigator.mediaDevices.enumerateDevices();
-                const videoInputs = all.filter(d => d.kind === 'videoinput');
+                const videoInputs = all.filter((d) => d.kind === 'videoinput');
 
                 const localIndex = camera.localDeviceIndex;
 
@@ -272,7 +402,6 @@ export default function CameraDetailPage() {
                 }
 
                 const selectedDevice = videoInputs[localIndex];
-
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         deviceId: { exact: selectedDevice.deviceId },
@@ -321,7 +450,7 @@ export default function CameraDetailPage() {
 
     useEffect(() => () => {
         stopLive();
-        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current?.getTracks().forEach((t) => t.stop());
         if (remoteImageUrl) URL.revokeObjectURL(remoteImageUrl);
     }, [stopLive, remoteImageUrl]);
 
@@ -335,129 +464,162 @@ export default function CameraDetailPage() {
 
     return (
         <>
-            <style>{CSS}</style>
+   
             {ctx}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-            <div style={{ background: 'var(--app-page-bg)', minHeight: '100vh', padding: '16px 20px', direction: 'rtl' }}>
-                <div style={{
-                    background: 'var(--app-surface)',
-                    border: '1px solid var(--app-border)',
-                    borderRadius: 12,
-                    padding: '12px 18px',
-                    marginBottom: 16,
-                    boxShadow: '0 1px 4px rgba(0,0,0,.05)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                }}>
-                    <Space size={12} align="center">
-                        <Tooltip title="إغلاق">
-                            <Button
-                                icon={<ArrowRightOutlined />}
-                                onClick={() => window.close()}
-                                size="small"
-                                style={{ borderRadius: 7 }}
-                            />
-                        </Tooltip>
+            <div className="camera-detail-shell">
+                <div className="camera-detail-hero">
+                    <div className="camera-detail-hero-inner">
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                            <div className="hero-badge">
+                                <VideoCameraOutlined style={{ fontSize: 28, color: '#fff' }} />
+                            </div>
 
-                        <div style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 9,
-                            flexShrink: 0,
-                            background: cameraOn ? '#f6ffed' : '#f5f5f5',
-                            border: `1px solid ${cameraOn ? '#b7eb8f' : '#e6eaf0'}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <VideoCameraOutlined style={{ fontSize: 18, color: cameraOn ? '#52c41a' : '#bfbfbf' }} />
-                        </div>
+                            <div>
+                                <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 900 }}>
+                                    {camera?.name ?? `كاميرا ${cameraId}`}
+                                </Title>
 
-                        <div>
-                            <Text strong style={{ fontSize: 15, display: 'block' }}>
-                                {camera?.name ?? `كاميرا ${cameraId}`}
-                            </Text>
-
-                            <Space size={10} style={{ marginTop: 1, flexWrap: 'wrap' }}>
-                                {camera?.area && (
-                                    <Text type="secondary" style={{ fontSize: 11 }}>
-                                        <EnvironmentOutlined style={{ marginLeft: 3 }} />
-                                        {camera.area}
-                                    </Text>
-                                )}
-
-                                <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
-                                    <WifiOutlined style={{ marginLeft: 3 }} />
-                                    {camera?.ipAddress}
+                                <Text style={{ color: 'rgba(255,255,255,.88)', fontSize: 13 }}>
+                                    عرض مباشر موحّد مع بقية الصفحات، وتحليل حي للوجوه من الكامرة المحددة.
                                 </Text>
 
-                                <Tag color={isLocalCamera ? 'blue' : 'purple'}>
-                                    {isLocalCamera ? 'محلية' : 'شبكية'}
-                                </Tag>
+                                <div className="hero-pills">
+                                    {camera?.area && (
+                                        <span className="hero-pill">
+                                            <EnvironmentOutlined />
+                                            {camera.area}
+                                        </span>
+                                    )}
 
-                                {openedDeviceLabel && (
-                                    <Tag color="cyan" icon={<CameraOutlined />}>
-                                        {openedDeviceLabel}
-                                    </Tag>
-                                )}
-                            </Space>
-                        </div>
-                    </Space>
+                                    <span className="hero-pill">
+                                        <WifiOutlined />
+                                        {camera?.ipAddress || '—'}
+                                    </span>
 
-                    <Space size={10}>
-                        {liveOn && <Badge status="processing" text={<Text style={{ color: '#52c41a', fontWeight: 600 }}>LIVE</Text>} />}
+                                    <span className="hero-pill">
+                                        <LinkOutlined />
+                                        {isLocalCamera ? 'كامرة محلية' : 'كامرة شبكية'}
+                                    </span>
 
-                        {[
-                            { label: 'الفريمات', value: frameCount, color: 'var(--app-muted)' },
-                            { label: 'التعرفات', value: totalKnown, color: '#52c41a' },
-                        ].map(s => (
-                            <div
-                                key={s.label}
-                                style={{
-                                    background: 'var(--app-page-bg)',
-                                    border: '1px solid var(--app-border)',
-                                    borderRadius: 8,
-                                    padding: '4px 14px',
-                                    textAlign: 'center',
-                                }}
-                            >
-                                <div style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</div>
-                                <div style={{ fontSize: 10, color: 'var(--app-muted)' }}>{s.label}</div>
+                                    {openedDeviceLabel && (
+                                        <span className="hero-pill">
+                                            <CameraOutlined />
+                                            {openedDeviceLabel}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                        ))}
-                    </Space>
+                        </div>
+
+                        <div className="hero-actions">
+                            <Button
+                                className="hero-btn"
+                                icon={<ArrowRightOutlined />}
+                                onClick={() => navigate('/cameras')}
+                            >
+                                العودة
+                            </Button>
+
+                            <Button
+                                className="hero-btn"
+                                icon={<StopOutlined />}
+                                onClick={() => window.close()}
+                            >
+                                إغلاق النافذة
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
-                <Row gutter={[14, 14]}>
+                <div className="camera-compact-stats">
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="نوع الكامرة"
+                            value={isLocalCamera ? 'محلية' : 'شبكية'}
+                            color="#2563eb"
+                            bg="#eff6ff"
+                            border="#bfdbfe"
+                            icon={<VideoCameraOutlined />}
+                        />
+                    </div>
+
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="الحالة"
+                            value={cameraOn ? (liveOn ? 'بث مباشر' : 'مفتوحة') : 'متوقفة'}
+                            color={cameraOn ? '#16a34a' : '#64748b'}
+                            bg={cameraOn ? '#f0fdf4' : '#f8fafc'}
+                            border={cameraOn ? '#bbf7d0' : '#e2e8f0'}
+                            icon={<ThunderboltOutlined />}
+                        />
+                    </div>
+
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="الفريمات"
+                            value={frameCount}
+                            color="#7c3aed"
+                            bg="#faf5ff"
+                            border="#ddd6fe"
+                            icon={<CameraOutlined />}
+                        />
+                    </div>
+
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="وجوه معروفة"
+                            value={totalKnown}
+                            color="#16a34a"
+                            bg="#f0fdf4"
+                            border="#bbf7d0"
+                            icon={<AimOutlined />}
+                        />
+                    </div>
+
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="إنذارات مهمة"
+                            value={riskyFaces}
+                            color="#dc2626"
+                            bg="#fff5f5"
+                            border="#fecaca"
+                            icon={<WarningOutlined />}
+                        />
+                    </div>
+
+                    <div className="camera-compact-stat-wrap">
+                        <CompactStat
+                            label="فترة الإرسال"
+                            value={`${intervalSec}s`}
+                            color="#d97706"
+                            bg="#fff7ed"
+                            border="#fed7aa"
+                            icon={<ClockCircleOutlined />}
+                        />
+                    </div>
+                </div>
+
+                <Row gutter={[18, 18]}>
                     <Col xs={24} lg={14}>
-                        <div style={{
-                            background: 'var(--app-surface)',
-                            border: '1px solid var(--app-border)',
-                            borderRadius: 14,
-                            overflow: 'hidden',
-                            boxShadow: '0 1px 4px rgba(0,0,0,.05)',
-                        }}>
-                            <div style={{
-                                background: 'var(--app-video-bg)',
-                                position: 'relative',
-                                minHeight: 300,
-                                aspectRatio: '16/9',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                overflow: 'hidden',
-                            }}>
+                        <Card
+                            className="surface-card"
+                            title={
+                                <div className="section-title">
+                                    <ScanOutlined style={{ color: '#1677ff' }} />
+                                    <span>العرض المباشر والتحكم</span>
+                                </div>
+                            }
+                        >
+                            <div className="camera-live-box">
                                 {isLocalCamera ? (
                                     <video
                                         ref={videoRef}
                                         autoPlay
                                         playsInline
                                         muted
-                                        style={{ width: '100%', display: cameraOn ? 'block' : 'none' }}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraOn ? 'block' : 'none' }}
                                     />
                                 ) : remoteImageUrl ? (
                                     <img
@@ -467,41 +629,15 @@ export default function CameraDetailPage() {
                                     />
                                 ) : null}
 
-                                {livePending && cameraOn && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        left: 0,
-                                        right: 0,
-                                        height: 2,
-                                        background: 'linear-gradient(90deg,transparent,#52c41a,transparent)',
-                                        animation: 'scanLine 1.5s ease infinite',
-                                        zIndex: 10,
-                                    }} />
-                                )}
+                                {livePending && cameraOn && <div className="scan-line" />}
 
                                 {liveOn && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 10,
-                                        left: 10,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        background: 'rgba(0,0,0,.5)',
-                                        backdropFilter: 'blur(4px)',
-                                        borderRadius: 20,
-                                        padding: '4px 10px',
-                                        border: '1px solid rgba(255,255,255,.15)',
-                                    }}>
-                                        <span style={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: '50%',
-                                            display: 'inline-block',
-                                            background: livePending ? '#faad14' : '#52c41a',
-                                            animation: 'liveDot 1.2s infinite',
-                                        }} />
-                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>
+                                    <div className="live-badge">
+                                        <span
+                                            className="dot"
+                                            style={{ background: livePending ? '#faad14' : '#52c41a' }}
+                                        />
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
                                             {livePending ? 'يحلل...' : 'LIVE'}
                                         </Text>
                                     </div>
@@ -509,24 +645,24 @@ export default function CameraDetailPage() {
 
                                 {!cameraOn && (
                                     <div style={{ textAlign: 'center', padding: 50 }}>
-                                        <VideoCameraOutlined style={{ fontSize: 72, color: '#3a3a3a', marginBottom: 12 }} />
+                                        <VideoCameraOutlined style={{ fontSize: 72, color: '#94a3b8', marginBottom: 12 }} />
                                         <br />
-                                        <Text style={{ color: '#888' }}>
-                                            ابدأ الكاميرا للتعرف على الوجوه
+                                        <Text style={{ color: 'var(--app-muted)' }}>
+                                            ابدأ الكامرة للتعرف على الوجوه
                                         </Text>
                                     </div>
                                 )}
                             </div>
 
-                            <div style={{ padding: '14px 16px' }}>
-                                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                            <div style={{ paddingTop: 16 }}>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                                     {!cameraOn ? (
                                         <Button
                                             icon={<VideoCameraOutlined />}
                                             onClick={startCamera}
-                                            style={{ flex: 1, height: 40, borderRadius: 10 }}
+                                            style={{ flex: 1, height: 42, borderRadius: 12 }}
                                         >
-                                            فتح الكاميرا
+                                            فتح الكامرة
                                         </Button>
                                     ) : (
                                         <>
@@ -537,10 +673,10 @@ export default function CameraDetailPage() {
                                                     type="primary"
                                                     style={{
                                                         flex: 1,
-                                                        height: 40,
-                                                        borderRadius: 10,
+                                                        height: 42,
+                                                        borderRadius: 12,
                                                         background: '#52c41a',
-                                                        borderColor: '#52c41a'
+                                                        borderColor: '#52c41a',
                                                     }}
                                                 >
                                                     بدء التعرف
@@ -550,7 +686,7 @@ export default function CameraDetailPage() {
                                                     icon={<PauseCircleOutlined />}
                                                     onClick={stopLive}
                                                     danger
-                                                    style={{ flex: 1, height: 40, borderRadius: 10 }}
+                                                    style={{ flex: 1, height: 42, borderRadius: 12 }}
                                                 >
                                                     إيقاف التعرف
                                                 </Button>
@@ -560,7 +696,7 @@ export default function CameraDetailPage() {
                                                 icon={<StopOutlined />}
                                                 onClick={stopCamera}
                                                 disabled={liveOn}
-                                                style={{ height: 40, borderRadius: 10 }}
+                                                style={{ height: 42, borderRadius: 12 }}
                                             >
                                                 إغلاق
                                             </Button>
@@ -574,7 +710,7 @@ export default function CameraDetailPage() {
                                             <FieldTimeOutlined style={{ marginLeft: 4 }} />
                                             فترة الإرسال
                                         </Text>
-                                        <Tag color="blue">{intervalSec}s</Tag>
+                                        <Tag color="blue" style={{ borderRadius: 999 }}>{intervalSec}s</Tag>
                                     </div>
 
                                     <Slider
@@ -584,7 +720,7 @@ export default function CameraDetailPage() {
                                         value={intervalSec}
                                         onChange={setIntervalSec}
                                         marks={{ 1: '1s', 3: '3s', 5: '5s', 10: '10s' }}
-                                        tooltip={{ formatter: v => `${v} ثانية` }}
+                                        tooltip={{ formatter: (v) => `${v} ثانية` }}
                                     />
 
                                     <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
@@ -592,41 +728,44 @@ export default function CameraDetailPage() {
                                     </Text>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     </Col>
 
                     <Col xs={24} lg={10}>
-                        <div style={{
-                            background: 'var(--app-surface)',
-                            border: '1px solid var(--app-border)',
-                            borderRadius: 14,
-                            padding: 14,
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            boxShadow: '0 1px 4px rgba(0,0,0,.05)',
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: 12,
-                                paddingBottom: 12,
-                                borderBottom: '1px solid #f0f0f0',
-                            }}>
-                                <Text strong style={{ fontSize: 14 }}>نتائج التعرف</Text>
+                        <Card
+                            className="surface-card"
+                            title={
+                                <div className="section-title">
+                                    <UserOutlined style={{ color: '#7c3aed' }} />
+                                    <span>نتائج التعرف</span>
+                                </div>
+                            }
+                        >
+                            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    النتائج الحالية للفريم الأحدث
+                                </Text>
 
                                 {liveResult && (
-                                    <Space size={6}>
-                                        <Tag color="blue">{liveResult.totalFaces} وجه</Tag>
-                                        <Tag color={liveResult.knownFaces > 0 ? 'success' : 'default'}>
+                                    <Space size={6} wrap>
+                                        <Tag color="blue" style={{ borderRadius: 999 }}>{totalFaces} وجه</Tag>
+                                        <Tag color={liveResult.knownFaces > 0 ? 'success' : 'default'} style={{ borderRadius: 999 }}>
                                             {liveResult.knownFaces} معروف
                                         </Tag>
                                     </Space>
                                 )}
                             </div>
 
-                            <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {riskyFaces > 0 && (
+                                <Alert
+                                    type="error"
+                                    showIcon
+                                    style={{ marginBottom: 12, borderRadius: 14 }}
+                                    message={`تم رصد ${riskyFaces} حالة تتطلب انتباهًا أمنيًا`}
+                                />
+                            )}
+
+                            <div style={{ maxHeight: 650, overflowY: 'auto', paddingInlineEnd: 2 }}>
                                 {livePending && !liveResult && (
                                     <div style={{ textAlign: 'center', padding: 40 }}>
                                         <Spin />
@@ -637,24 +776,26 @@ export default function CameraDetailPage() {
                                 )}
 
                                 {!liveResult && !livePending && (
-                                    <div style={{ textAlign: 'center', padding: 50 }}>
-                                        <UserOutlined style={{ fontSize: 52, color: '#e6eaf0', marginBottom: 12 }} />
-                                        <br />
-                                        <Text type="secondary">
-                                            {cameraOn ? 'اضغط "بدء التعرف" للبدء' : 'افتح الكاميرا أولاً'}
-                                        </Text>
-                                    </div>
+                                    <Empty
+                                        image={<UserOutlined style={{ fontSize: 52, color: '#d9d9d9' }} />}
+                                        description={cameraOn ? 'اضغط "بدء التعرف" للبدء' : 'افتح الكامرة أولًا'}
+                                    />
                                 )}
 
                                 {liveResult?.faces.length === 0 && (
-                                    <Alert message="لم يُكتشف أي وجه في هذا الفريم" type="info" showIcon />
+                                    <Alert
+                                        message="لم يُكتشف أي وجه في هذا الفريم"
+                                        type="info"
+                                        showIcon
+                                        style={{ borderRadius: 14 }}
+                                    />
                                 )}
 
                                 {liveResult?.faces.map((face, idx) => (
                                     <FaceCard key={idx} face={face} />
                                 ))}
                             </div>
-                        </div>
+                        </Card>
                     </Col>
                 </Row>
             </div>

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef, useCallback } from 'react';
+﻿import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,6 +22,8 @@ import {
     Tabs,
     Tag,
     Tooltip,
+    Empty,
+    Badge,
 } from 'antd';
 import type { UploadFile } from 'antd';
 import {
@@ -37,6 +39,9 @@ import {
     WarningOutlined,
     CheckCircleOutlined,
     InfoCircleOutlined,
+    EditOutlined,
+    PictureOutlined,
+    FileTextOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getPersonById, setActive, setDisActive, updatePerson } from '../../api/personsApi';
@@ -78,7 +83,6 @@ interface FormValues {
     address?: string;
     notes?: string;
     isActive: boolean;
-
     securityStatus: PersonSecurityStatus;
     dangerLevel: DangerLevel;
     hasActiveAlert: boolean;
@@ -105,14 +109,58 @@ interface LocalImage {
     isPrimary: boolean;
 }
 
-const securityOptions = Object.entries(PersonSecurityStatusLabel).map(([value, label]) => ({ value: Number(value), label }));
-const dangerOptions = Object.entries(DangerLevelLabel).map(([value, label]) => ({ value: Number(value), label }));
+const securityOptions = Object.entries(PersonSecurityStatusLabel).map(([value, label]) => ({
+    value: Number(value),
+    label,
+}));
 
-const buildExistingPreview = (img: PersonFaceImageDto): string | undefined => {
+const dangerOptions = Object.entries(DangerLevelLabel).map(([value, label]) => ({
+    value: Number(value),
+    label,
+}));
+
+const buildExistingPreview = (img?: PersonFaceImageDto | null): string | undefined => {
+    if (!img) return undefined;
     if (img.faceProcessedImage) return `data:image/jpeg;base64,${img.faceProcessedImage}`;
     if (img.imageFilePath) return img.imageFilePath;
     return undefined;
 };
+
+function SummaryStat({
+    label,
+    value,
+    color,
+    bg,
+    border,
+    icon,
+}: {
+    label: string;
+    value: string | number;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.ReactNode;
+}) {
+    return (
+        <div className="summary-stat">
+            <div>
+                <div style={{ fontSize: 18, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 11, color: 'var(--app-muted)', marginTop: 6 }}>{label}</div>
+            </div>
+
+            <div
+                className="summary-stat-icon"
+                style={{
+                    background: bg,
+                    borderColor: border,
+                    color,
+                }}
+            >
+                {icon}
+            </div>
+        </div>
+    );
+}
 
 export default function EditPerson() {
     const queryClient = useQueryClient();
@@ -125,6 +173,7 @@ export default function EditPerson() {
     const [newImages, setNewImages] = useState<LocalImage[]>([]);
     const [images, setImages] = useState<PersonFaceImageDto[]>([]);
     const [activeTab, setActiveTab] = useState('upload');
+    const newImagesRef = useRef<LocalImage[]>([]);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -132,9 +181,9 @@ export default function EditPerson() {
     const [cameraOn, setCameraOn] = useState(false);
 
     const { mutate: updateStatus } = useMutation({
-        mutationFn: (active: boolean) => active ? setActive(personId) : setDisActive(personId),
-        onSuccess: (active: boolean) => {
-            messageApi.success(active ? 'تم التفعيل ✅' : 'تم التعطيل');
+        mutationFn: async (active: boolean) => (active ? setActive(personId) : setDisActive(personId)),
+        onSuccess: (_data, active) => {
+            messageApi.success(active ? 'تم التفعيل ✅' : 'تم التعطيل ✅');
             queryClient.invalidateQueries({ queryKey: ['person', personId] });
             queryClient.invalidateQueries({ queryKey: ['persons'] });
         },
@@ -160,7 +209,6 @@ export default function EditPerson() {
             address: person.address ?? undefined,
             notes: person.notes ?? undefined,
             isActive: person.isActive,
-
             securityStatus: person.securityStatus ?? PersonSecurityStatus.Normal,
             dangerLevel: person.dangerLevel ?? DangerLevel.None,
             hasActiveAlert: !!person.hasActiveAlert,
@@ -201,7 +249,15 @@ export default function EditPerson() {
             const base64 = await fileToBase64(file);
             const preview = URL.createObjectURL(file);
             const hasPrimary = images.some((img) => img.isPrimary) || newImages.some((img) => img.isPrimary);
-            setNewImages((prev) => [...prev, { uid: `new-${Date.now()}-${Math.random()}`, base64, preview, isPrimary: !hasPrimary && prev.length === 0 }]);
+            setNewImages((prev) => [
+                ...prev,
+                {
+                    uid: `new-${Date.now()}-${Math.random()}`,
+                    base64,
+                    preview,
+                    isPrimary: !hasPrimary && prev.length === 0,
+                },
+            ]);
         } catch {
             messageApi.error('فشل تحميل الصورة');
         }
@@ -213,7 +269,15 @@ export default function EditPerson() {
         const base64 = await fileToBase64(file);
         const preview = URL.createObjectURL(blob);
         const hasPrimary = images.some((img) => img.isPrimary) || newImages.some((img) => img.isPrimary);
-        setNewImages((prev) => [...prev, { uid: `cam-${Date.now()}-${Math.random()}`, base64, preview, isPrimary: !hasPrimary && prev.length === 0 }]);
+        setNewImages((prev) => [
+            ...prev,
+            {
+                uid: `cam-${Date.now()}-${Math.random()}`,
+                base64,
+                preview,
+                isPrimary: !hasPrimary && prev.length === 0,
+            },
+        ]);
         messageApi.success('تم التقاط الصورة وإضافتها ✅');
     };
 
@@ -321,7 +385,6 @@ export default function EditPerson() {
             address: values.address ?? null,
             notes: values.notes ?? null,
             isActive: values.isActive,
-
             securityStatus: values.securityStatus,
             dangerLevel: values.dangerLevel,
             hasActiveAlert: values.hasActiveAlert ?? false,
@@ -339,7 +402,6 @@ export default function EditPerson() {
             vehicleInfo: values.vehicleInfo ?? null,
             securityNotes: values.securityNotes ?? null,
             alertInstructions: values.alertInstructions ?? null,
-
             faceImages: [...existingImages, ...newImagesDto],
         };
 
@@ -347,13 +409,43 @@ export default function EditPerson() {
     };
 
     useEffect(() => {
+        newImagesRef.current = newImages;
+    }, [newImages]);
+
+    useEffect(() => {
         return () => {
             stopCamera();
-            newImages.forEach((img) => {
+            newImagesRef.current.forEach((img) => {
                 if (img.preview) URL.revokeObjectURL(img.preview);
             });
         };
-    }, [newImages, stopCamera]);
+    }, [stopCamera]);
+
+    const watchedFullName = Form.useWatch('fullName', form);
+    const watchedSecurityStatus =
+        (Form.useWatch('securityStatus', form) as PersonSecurityStatus | undefined) ??
+        person?.securityStatus ??
+        PersonSecurityStatus.Normal;
+
+    const watchedDangerLevel =
+        (Form.useWatch('dangerLevel', form) as DangerLevel | undefined) ??
+        person?.dangerLevel ??
+        DangerLevel.None;
+
+    const watchedHasAlert = Form.useWatch('hasActiveAlert', form);
+    const watchedDangerous = Form.useWatch('isArmedAndDangerous', form);
+
+    const primaryExisting = useMemo(
+        () => images.find((img) => img.isPrimary),
+        [images],
+    );
+
+    const primaryNew = useMemo(
+        () => newImages.find((img) => img.isPrimary),
+        [newImages],
+    );
+
+    const previewPrimary = primaryNew?.preview || buildExistingPreview(primaryExisting) || '';
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
@@ -362,190 +454,611 @@ export default function EditPerson() {
     if (isError || !person) {
         return (
             <div style={{ padding: 24 }}>
-                <Alert type="error" message="لم يتم العثور على الشخص" action={<Button onClick={() => navigate('/Indexpersons')}>العودة للقائمة</Button>} />
+                <Alert
+                    type="error"
+                    message="لم يتم العثور على الشخص"
+                    action={<Button onClick={() => navigate('/Indexpersons')}>العودة للقائمة</Button>}
+                />
             </div>
         );
     }
-    const currentSecurityStatus =
-        (form.getFieldValue('securityStatus') ?? person.securityStatus ?? PersonSecurityStatus.Normal) as PersonSecurityStatus;
-
-    const currentDangerLevel =
-        (form.getFieldValue('dangerLevel') ?? person.dangerLevel ?? DangerLevel.None) as DangerLevel;
 
     return (
-        <div style={{ padding: 24, direction: 'rtl', background: 'var(--app-page-bg)', minHeight: '100vh' }}>
+        <div className="edit-shell">
             {contextHolder}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-            <Space align="center" style={{ marginBottom: 24, flexWrap: 'wrap' }}>
-                <Button icon={<ArrowRightOutlined />} onClick={() => navigate(`/persons/${personId}`)}>العودة للتفاصيل</Button>
-                <Title level={3} style={{ margin: 0 }}>تعديل: {person.fullName}</Title>
-                <Tag color={PersonSecurityStatusColor[currentSecurityStatus]}>
-                    {PersonSecurityStatusLabel[currentSecurityStatus]}
-                </Tag>
+            <div className="edit-hero">
+                <div className="edit-hero-inner">
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                        <div className="hero-badge">
+                            <EditOutlined style={{ fontSize: 28, color: '#fff' }} />
+                        </div>
 
-                <Tag color={DangerLevelColor[currentDangerLevel]}>
-                    {DangerLevelLabel[currentDangerLevel]}
-                </Tag>
-            </Space>
+                        <div>
+                            <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 900 }}>
+                                تعديل بيانات شخص
+                            </Title>
+                            <Text style={{ color: 'rgba(255,255,255,.86)', fontSize: 13 }}>
+                                حدث البيانات الشخصية والأمنية والصور.
+                            </Text>
+                        </div>
+                    </div>
 
-            <Form<FormValues> form={form} layout="vertical" onFinish={handleFinish}>
-                <Row gutter={24}>
-                    <Col xs={24} lg={16}>
-                        <Card title="البيانات الشخصية" style={{ marginBottom: 16 }}>
-                            <Row gutter={16}>
-                                <Col xs={24} md={12}><Form.Item name="fullName" label="الاسم الكامل" rules={[{ required: true, message: 'الاسم الكامل مطلوب' }]}><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="displayName" label="الاسم المختصر"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="gender" label="الجنس" rules={[{ required: true }]}><Select size="large" options={[{ value: Gender.Male, label: 'ذكر' }, { value: Gender.Female, label: 'أنثى' }]} /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="birthDate" label="تاريخ الميلاد"><DatePicker style={{ width: '100%' }} size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="nationalId" label="الهوية الوطنية"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="externalCode" label="الرمز الخارجي"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="phoneNumber" label="رقم الهاتف"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="isActive" label="الحالة" valuePropName="checked"><Switch checkedChildren="نشط" unCheckedChildren="غير نشط" onChange={(e) => updateStatus(e)} /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="address" label="العنوان"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="notes" label="ملاحظات عامة"><TextArea rows={3} /></Form.Item></Col>
-                            </Row>
-                        </Card>
+                    <div className="hero-actions">
+                        <Button className="hero-btn" icon={<ArrowRightOutlined />} onClick={() => navigate(`/persons/${personId}`)}>
+                            العودة للتفاصيل
+                        </Button>
 
-                        <Card title={<Space><SafetyOutlined style={{ color: '#dc2626' }} /><span>البيانات الأمنية</span></Space>} style={{ marginBottom: 16 }}>
-                            <Row gutter={16}>
-                                <Col xs={24} md={12}><Form.Item name="securityStatus" label="الحالة الأمنية"><Select size="large" options={securityOptions} /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="dangerLevel" label="درجة الخطورة"><Select size="large" options={dangerOptions} /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="hasActiveAlert" label="يوجد تعميم فعال" valuePropName="checked"><Switch checkedChildren="نعم" unCheckedChildren="لا" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="isArmedAndDangerous" label="مسلح وخطر" valuePropName="checked"><Switch checkedChildren="نعم" unCheckedChildren="لا" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="securityReason" label="سبب الإدراج الأمني"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="caseNumber" label="رقم القضية"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="issuedBy" label="الجهة المصدرة"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="arrestWarrantNumber" label="رقم أمر القبض"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="alertIssuedAt" label="تاريخ إصدار التعميم"><DatePicker showTime style={{ width: '100%' }} size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="alertExpiresAt" label="تاريخ انتهاء التعميم"><DatePicker showTime style={{ width: '100%' }} size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="lastSeenAt" label="آخر ظهور"><DatePicker showTime style={{ width: '100%' }} size="large" /></Form.Item></Col>
-                                <Col xs={24} md={12}><Form.Item name="lastSeenLocation" label="مكان آخر ظهور"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="aliases" label="الأسماء المستعارة"><Input size="large" /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="distinguishingMarks" label="علامات مميزة"><TextArea rows={2} /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="vehicleInfo" label="معلومات المركبة"><TextArea rows={2} /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="securityNotes" label="ملاحظات أمنية"><TextArea rows={3} /></Form.Item></Col>
-                                <Col xs={24}><Form.Item name="alertInstructions" label="تعليمات عند المشاهدة"><TextArea rows={3} /></Form.Item></Col>
-                            </Row>
+                        <Button className="hero-btn" type="primary" icon={<SaveOutlined />} htmlType="submit" form="edit-person-form" loading={isPending}>
+                            حفظ التعديلات
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="stats-strip">
+                <div className="stat-mini-wrap">
+                    <SummaryStat
+                        label="الصور الحالية"
+                        value={images.length}
+                        color="#2563eb"
+                        bg="#eff6ff"
+                        border="#bfdbfe"
+                        icon={<PictureOutlined />}
+                    />
+                </div>
+
+                <div className="stat-mini-wrap">
+                    <SummaryStat
+                        label="صور جديدة"
+                        value={newImages.length}
+                        color="#16a34a"
+                        bg="#f0fdf4"
+                        border="#bbf7d0"
+                        icon={<UploadOutlined />}
+                    />
+                </div>
+
+                <div className="stat-mini-wrap">
+                    <SummaryStat
+                        label="الاسم الكامل"
+                        value={watchedFullName ? 'جاهز' : 'ناقص'}
+                        color={watchedFullName ? '#16a34a' : '#d97706'}
+                        bg={watchedFullName ? '#f0fdf4' : '#fff7ed'}
+                        border={watchedFullName ? '#bbf7d0' : '#fed7aa'}
+                        icon={<FileTextOutlined />}
+                    />
+                </div>
+
+                <div className="stat-mini-wrap">
+                    <SummaryStat
+                        label="الحالة الأمنية"
+                        value={PersonSecurityStatusLabel[watchedSecurityStatus]}
+                        color="#dc2626"
+                        bg="#fff5f5"
+                        border="#fecaca"
+                        icon={<SafetyOutlined />}
+                    />
+                </div>
+
+                <div className="stat-mini-wrap">
+                    <SummaryStat
+                        label="درجة الخطورة"
+                        value={DangerLevelLabel[watchedDangerLevel]}
+                        color="#7c3aed"
+                        bg="#faf5ff"
+                        border="#ddd6fe"
+                        icon={<WarningOutlined />}
+                    />
+                </div>
+            </div>
+
+            <Form<FormValues> id="edit-person-form" form={form} layout="vertical" onFinish={handleFinish}>
+                <Row gutter={[18, 18]} align="stretch">
+                    <Col xs={24} xl={16}>
+                        <Card
+                            className="surface-card"
+                            title={
+                                <div className="section-title">
+                                    <InfoCircleOutlined style={{ color: '#1677ff' }} />
+                                    <span>البيانات الشخصية</span>
+                                </div>
+                            }
+                        >
+                            <div className="field-group">
+                                <div className="field-group-title">
+                                    <InfoCircleOutlined style={{ color: '#1677ff' }} />
+                                    المعلومات الأساسية
+                                </div>
+
+                                <Row gutter={16}>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="fullName" label="الاسم الكامل" rules={[{ required: true, message: 'الاسم الكامل مطلوب' }]}>
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="displayName" label="الاسم المختصر">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="gender" label="الجنس" rules={[{ required: true }]}>
+                                            <Select
+                                                size="large"
+                                                options={[
+                                                    { value: Gender.Male, label: 'ذكر' },
+                                                    { value: Gender.Female, label: 'أنثى' },
+                                                ]}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="birthDate" label="تاريخ الميلاد">
+                                            <DatePicker style={{ width: '100%' }} size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                            </div>
+
+                            <div className="field-group">
+                                <div className="field-group-title">
+                                    <FileTextOutlined style={{ color: '#7c3aed' }} />
+                                    بيانات التعريف والتواصل
+                                </div>
+
+                                <Row gutter={16}>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="nationalId" label="الهوية الوطنية">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="externalCode" label="الرمز الخارجي">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="phoneNumber" label="رقم الهاتف">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="isActive" label="الحالة" valuePropName="checked">
+                                            <Switch
+                                                checkedChildren="نشط"
+                                                unCheckedChildren="غير نشط"
+                                                onChange={(active) => updateStatus(active)}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="address" label="العنوان">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="notes" label="ملاحظات عامة">
+                                            <TextArea rows={3} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                            </div>
+
+                            <div className="field-group">
+                                <div className="field-group-title">
+                                    <SafetyOutlined style={{ color: '#dc2626' }} />
+                                    البيانات الأمنية
+                                </div>
+
+                                <Row gutter={16}>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="securityStatus" label="الحالة الأمنية">
+                                            <Select size="large" options={securityOptions} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="dangerLevel" label="درجة الخطورة">
+                                            <Select size="large" options={dangerOptions} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="hasActiveAlert" label="يوجد تعميم فعال" valuePropName="checked">
+                                            <Switch checkedChildren="نعم" unCheckedChildren="لا" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="isArmedAndDangerous" label="مسلح وخطر" valuePropName="checked">
+                                            <Switch checkedChildren="نعم" unCheckedChildren="لا" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="securityReason" label="سبب الإدراج الأمني">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="caseNumber" label="رقم القضية">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="issuedBy" label="الجهة المصدرة">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="arrestWarrantNumber" label="رقم أمر القبض">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="alertIssuedAt" label="تاريخ إصدار التعميم">
+                                            <DatePicker showTime style={{ width: '100%' }} size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="alertExpiresAt" label="تاريخ انتهاء التعميم">
+                                            <DatePicker showTime style={{ width: '100%' }} size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="lastSeenAt" label="آخر ظهور">
+                                            <DatePicker showTime style={{ width: '100%' }} size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={12}>
+                                        <Form.Item name="lastSeenLocation" label="مكان آخر ظهور">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="aliases" label="الأسماء المستعارة">
+                                            <Input size="large" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="distinguishingMarks" label="علامات مميزة">
+                                            <TextArea rows={2} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="vehicleInfo" label="معلومات المركبة">
+                                            <TextArea rows={2} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="securityNotes" label="ملاحظات أمنية">
+                                            <TextArea rows={3} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24}>
+                                        <Form.Item name="alertInstructions" label="تعليمات عند المشاهدة">
+                                            <TextArea rows={3} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                            </div>
                         </Card>
                     </Col>
 
-                    <Col xs={24} lg={8}>
-                        <Card title={<Space><CameraOutlined /><span>صور الوجه</span>{newImages.length > 0 && <Tag color="blue">+{newImages.length} جديدة</Tag>}</Space>}>
-                            {person.faceImages.length > 0 && (
-                                <>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>الصور الحالية</Text>
-                                    <Row gutter={[8, 8]} style={{ marginTop: 8, marginBottom: 12 }}>
-                                        {images.map((img) => (
-                                            <Col key={img.faceImageId} span={12}>
-                                                <div style={{ position: 'relative' }}>
-                                                    {buildExistingPreview(img) ? (
-                                                        <Image src={buildExistingPreview(img)} style={{ width: '100%', height: 96, objectFit: 'cover', borderRadius: 8, border: img.isPrimary ? '2px solid #1677ff' : '1px solid #d9d9d9' }} preview={false} />
-                                                    ) : (
-                                                        <div style={{ height: 96, borderRadius: 8, border: '1px solid #d9d9d9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text type="secondary">لا توجد معاينة</Text></div>
-                                                    )}
-                                                    <div style={{ position: 'absolute', top: 4, left: 4, right: 4, display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Button danger size="small" icon={<DeleteOutlined />} style={{ minWidth: 'auto', paddingInline: 6 }} onClick={() => removeOldImage(img.faceImageId)} />
-                                                        <Button size="small" icon={img.isPrimary ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />} style={{ minWidth: 'auto', paddingInline: 6 }} onClick={() => setOldPrimary(img.faceImageId)} />
-                                                    </div>
-                                                    {img.isPrimary && <div style={{ position: 'absolute', bottom: 4, right: 4, background: '#1677ff', color: '#fff', fontSize: 10, padding: '0 6px', borderRadius: 6 }}>رئيسية</div>}
-                                                </div>
-                                            </Col>
-                                        ))}
-                                    </Row>
-                                    <Divider />
-                                </>
-                            )}
-
-                            {newImages.length > 0 && (
-                                <>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>صور جديدة ({newImages.length})</Text>
-                                    <Row gutter={[8, 8]} style={{ marginTop: 8, marginBottom: 12 }}>
-                                        {newImages.map((img) => (
-                                            <Col key={img.uid} span={12}>
-                                                <div style={{ position: 'relative' }}>
-                                                    <Image src={img.preview} style={{ width: '100%', height: 96, objectFit: 'cover', borderRadius: 8, border: img.isPrimary ? '2px solid #1677ff' : '2px dashed #1677ff' }} preview={false} />
-                                                    <div style={{ position: 'absolute', top: 4, left: 4, right: 4, display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Button danger size="small" icon={<DeleteOutlined />} style={{ minWidth: 'auto', paddingInline: 6 }} onClick={() => removeNewImage(img.uid)} />
-                                                        <Button size="small" icon={img.isPrimary ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />} style={{ minWidth: 'auto', paddingInline: 6 }} onClick={() => setNewPrimary(img.uid)} />
-                                                    </div>
-                                                    {img.isPrimary && <div style={{ position: 'absolute', bottom: 4, right: 4, background: '#1677ff', color: '#fff', fontSize: 10, padding: '0 6px', borderRadius: 6 }}>رئيسية</div>}
-                                                </div>
-                                            </Col>
-                                        ))}
-                                    </Row>
-                                    <Divider />
-                                </>
-                            )}
-
-                            <Tabs activeKey={activeTab} onChange={handleTabChange} size="small" items={[
-                                {
-                                    key: 'upload',
-                                    label: <Space><UploadOutlined />رفع صورة</Space>,
-                                    children: (
-                                        <>
-                                            <Upload<UploadFile> accept="image/*" showUploadList={false} multiple beforeUpload={(file) => handleImageSelect(file)}>
-                                                <Button icon={<UploadOutlined />} block type="dashed" style={{ marginBottom: 8 }}>إضافة صورة جديدة</Button>
-                                            </Upload>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>📌 الصيغ المدعومة: JPG, PNG</Text>
-                                        </>
-                                    ),
-                                },
-                                {
-                                    key: 'camera',
-                                    label: <Space><CameraOutlined />كاميرا</Space>,
-                                    children: (
-                                        <>
-                                            <div style={{ background: '#000', borderRadius: 8, overflow: 'hidden', marginBottom: 10, minHeight: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', display: cameraOn ? 'block' : 'none' }} />
-                                                {!cameraOn && <div style={{ textAlign: 'center', padding: 20 }}><CameraOutlined style={{ fontSize: 36, color: '#555' }} /><br /><Text style={{ color: '#888', fontSize: 12 }}>اضغط لفتح الكاميرا</Text></div>}
-                                            </div>
-                                            <Space direction="vertical" style={{ width: '100%' }}>
-                                                {!cameraOn ? (
-                                                    <Button icon={<CameraOutlined />} block onClick={startCamera}>فتح الكاميرا</Button>
-                                                ) : (
-                                                    <Row gutter={8}>
-                                                        <Col span={16}><Button type="primary" icon={<CameraOutlined />} block onClick={captureFrame}>التقاط صورة</Button></Col>
-                                                        <Col span={8}><Button danger icon={<StopOutlined />} block onClick={stopCamera}>إيقاف</Button></Col>
-                                                    </Row>
-                                                )}
-                                            </Space>
-                                            <Text type="secondary" style={{ fontSize: 11, marginTop: 8, display: 'block' }}>📌 تأكد من وضوح الوجه والإضاءة</Text>
-                                        </>
-                                    ),
-                                },
-                            ]} />
-
-                            {newImages.length > 0 && <div style={{ marginTop: 8 }}><Text type="success" style={{ fontSize: 12 }}>✅ {newImages.length} صورة جديدة ستُرفع عند الحفظ</Text></div>}
-                        </Card>
-
-                        <Card style={{ marginTop: 16, borderColor: form.getFieldValue('hasActiveAlert') ? '#fca5a5' : undefined }}>
-                            <Space direction="vertical" style={{ width: '100%' }} size={8}>
-                                <Space>
-                                    <WarningOutlined style={{ color: '#dc2626' }} />
-                                    <Text strong>ملخص أمني</Text>
-                                </Space>
-                                <Tag color={PersonSecurityStatusColor[currentSecurityStatus]}>
-                                    {PersonSecurityStatusLabel[currentSecurityStatus]}
-                                </Tag>
-
-                                <Tag color={DangerLevelColor[currentDangerLevel]}>
-                                    {DangerLevelLabel[currentDangerLevel]}
-                                </Tag>
-                                {form.getFieldValue('hasActiveAlert') && <Alert type="warning" showIcon message="يوجد تعميم فعال لهذا الشخص" />}
-                                {form.getFieldValue('isArmedAndDangerous') && <Alert type="error" showIcon message="الشخص مصنف مسلح وخطر" />}
-                                {person.suspect && (
-                                    <Alert type="warning" showIcon message="سجل مشتبه به قديم موجود" description={`القضية: ${person.suspect.caseReference || '—'} / الحالة: ${person.suspect.status || '—'}`} />
+                    <Col xs={24} xl={8}>
+                        <div className="right-stack">
+                            <Card
+                                className="surface-card"
+                                title={
+                                    <div className="section-title">
+                                        <PictureOutlined style={{ color: '#16a34a' }} />
+                                        <span>صور الوجه</span>
+                                        <span className="section-badge">{images.length + newImages.length}</span>
+                                    </div>
+                                }
+                            >
+                                {previewPrimary ? (
+                                    <div
+                                        style={{
+                                            marginBottom: 16,
+                                            borderRadius: 18,
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--app-border)',
+                                            background: 'var(--app-surface-2)',
+                                        }}
+                                    >
+                                        <Image
+                                            src={previewPrimary}
+                                            alt="الصورة الرئيسية"
+                                            preview={false}
+                                            style={{
+                                                width: '100%',
+                                                height: 220,
+                                                objectFit: 'cover',
+                                                display: 'block',
+                                            }}
+                                        />
+                                        <div style={{ padding: 10 }}>
+                                            <Tag color="blue" icon={<CheckCircleOutlined />}>الصورة الرئيسية</Tag>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="upload-drop">
+                                        <CameraOutlined style={{ fontSize: 42, color: '#93c5fd', marginBottom: 10 }} />
+                                        <div>
+                                            <Text strong style={{ display: 'block', color: 'var(--app-text)' }}>
+                                                لا توجد صور متاحة حاليًا
+                                            </Text>
+                                            <Text className="muted-note">أضف صورًا جديدة أو التقط صورة من الكاميرا</Text>
+                                        </div>
+                                    </div>
                                 )}
-                            </Space>
-                        </Card>
+
+                                {images.length > 0 && (
+                                    <>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>الصور الحالية</Text>
+                                        <div className="preview-grid" style={{ marginTop: 8 }}>
+                                            {images.map((img) => (
+                                                <div key={img.faceImageId} className={`preview-tile${img.isPrimary ? ' primary' : ''}`}>
+                                                    {buildExistingPreview(img) ? (
+                                                        <Image
+                                                            src={buildExistingPreview(img)}
+                                                            style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
+                                                            preview={false}
+                                                        />
+                                                    ) : (
+                                                        <div style={{ height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Text type="secondary">لا توجد معاينة</Text>
+                                                        </div>
+                                                    )}
+                                                    <div className="preview-actions">
+                                                        <Tooltip title="حذف الصورة">
+                                                            <Button
+                                                                danger
+                                                                size="small"
+                                                                icon={<DeleteOutlined />}
+                                                                style={{ minWidth: 'auto', paddingInline: 7 }}
+                                                                onClick={() => removeOldImage(img.faceImageId)}
+                                                            />
+                                                        </Tooltip>
+
+                                                        <Tooltip title="تعيين كصورة رئيسية">
+                                                            <Button
+                                                                size="small"
+                                                                icon={img.isPrimary ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                                                                style={{ minWidth: 'auto', paddingInline: 7 }}
+                                                                onClick={() => setOldPrimary(img.faceImageId)}
+                                                            />
+                                                        </Tooltip>
+                                                    </div>
+                                                    {img.isPrimary && <div className="preview-label">رئيسية</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Divider />
+                                    </>
+                                )}
+
+                                {newImages.length > 0 && (
+                                    <>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            صور جديدة <Badge count={newImages.length} color="#16a34a" />
+                                        </Text>
+                                        <div className="preview-grid" style={{ marginTop: 8 }}>
+                                            {newImages.map((img) => (
+                                                <div key={img.uid} className={`preview-tile${img.isPrimary ? ' primary' : ''}`}>
+                                                    <Image
+                                                        src={img.preview}
+                                                        style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }}
+                                                        preview={false}
+                                                    />
+                                                    <div className="preview-actions">
+                                                        <Tooltip title="حذف الصورة">
+                                                            <Button
+                                                                danger
+                                                                size="small"
+                                                                icon={<DeleteOutlined />}
+                                                                style={{ minWidth: 'auto', paddingInline: 7 }}
+                                                                onClick={() => removeNewImage(img.uid)}
+                                                            />
+                                                        </Tooltip>
+
+                                                        <Tooltip title="تعيين كصورة رئيسية">
+                                                            <Button
+                                                                size="small"
+                                                                icon={img.isPrimary ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                                                                style={{ minWidth: 'auto', paddingInline: 7 }}
+                                                                onClick={() => setNewPrimary(img.uid)}
+                                                            />
+                                                        </Tooltip>
+                                                    </div>
+                                                    {img.isPrimary && <div className="preview-label">رئيسية</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Divider />
+                                    </>
+                                )}
+
+                                {images.length === 0 && newImages.length === 0 && (
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="لا توجد صور" style={{ marginBottom: 12 }} />
+                                )}
+
+                                <Tabs
+                                    activeKey={activeTab}
+                                    onChange={handleTabChange}
+                                    size="small"
+                                    items={[
+                                        {
+                                            key: 'upload',
+                                            label: <Space><UploadOutlined />رفع صورة</Space>,
+                                            children: (
+                                                <div className="upload-drop">
+                                                    <Upload<UploadFile>
+                                                        accept="image/*"
+                                                        showUploadList={false}
+                                                        multiple
+                                                        beforeUpload={(file) => handleImageSelect(file)}
+                                                    >
+                                                        <Button icon={<UploadOutlined />} type="primary" size="large" block>
+                                                            إضافة صور جديدة
+                                                        </Button>
+                                                    </Upload>
+                                                    <div style={{ marginTop: 10 }}>
+                                                        <Text className="muted-note">الصيغ المدعومة: JPG, PNG</Text>
+                                                    </div>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'camera',
+                                            label: <Space><CameraOutlined />كاميرا</Space>,
+                                            children: (
+                                                <>
+                                                    <div className="camera-box">
+                                                        <video
+                                                            ref={videoRef}
+                                                            autoPlay
+                                                            playsInline
+                                                            muted
+                                                            style={{ width: '100%', display: cameraOn ? 'block' : 'none' }}
+                                                        />
+                                                        {cameraOn && <div className="camera-overlay-badge">LIVE CAMERA</div>}
+                                                        {!cameraOn && (
+                                                            <div style={{ textAlign: 'center', padding: 20 }}>
+                                                                <CameraOutlined style={{ fontSize: 40, color: '#64748b', marginBottom: 8 }} />
+                                                                <br />
+                                                                <Text style={{ color: '#94a3b8', fontSize: 12 }}>اضغط لفتح الكاميرا</Text>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <Space direction="vertical" style={{ width: '100%' }}>
+                                                        {!cameraOn ? (
+                                                            <Button icon={<CameraOutlined />} block size="large" onClick={startCamera}>
+                                                                فتح الكاميرا
+                                                            </Button>
+                                                        ) : (
+                                                            <Row gutter={8}>
+                                                                <Col span={16}>
+                                                                    <Button type="primary" icon={<CameraOutlined />} block size="large" onClick={captureFrame}>
+                                                                        التقاط صورة
+                                                                    </Button>
+                                                                </Col>
+                                                                <Col span={8}>
+                                                                    <Button danger icon={<StopOutlined />} block size="large" onClick={stopCamera}>
+                                                                        إيقاف
+                                                                    </Button>
+                                                                </Col>
+                                                            </Row>
+                                                        )}
+                                                    </Space>
+                                                </>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </Card>
+
+                            <Card
+                                className="surface-card"
+                                title={
+                                    <div className="section-title">
+                                        <SafetyOutlined style={{ color: '#dc2626' }} />
+                                        <span>ملخص أمني مباشر</span>
+                                    </div>
+                                }
+                            >
+                                <div className="preview-summary">
+                                    <Space wrap size={8}>
+                                        <Tag color={PersonSecurityStatusColor[watchedSecurityStatus]}>
+                                            {PersonSecurityStatusLabel[watchedSecurityStatus]}
+                                        </Tag>
+                                        <Tag color={DangerLevelColor[watchedDangerLevel]}>
+                                            {DangerLevelLabel[watchedDangerLevel]}
+                                        </Tag>
+                                        {watchedHasAlert ? <Tag color="error">تعميم فعال</Tag> : <Tag>لا يوجد تعميم</Tag>}
+                                        {watchedDangerous ? <Tag color="volcano">مسلح وخطر</Tag> : <Tag>غير مسلح</Tag>}
+                                    </Space>
+
+                                    <Divider />
+
+                                    <div className="summary-chip-wrap">
+                                        <div className="summary-chip">
+                                            <div className="v">{images.length}</div>
+                                            <div className="l">حالياً</div>
+                                        </div>
+
+                                        <div className="summary-chip">
+                                            <div className="v">{newImages.length}</div>
+                                            <div className="l">جديدة</div>
+                                        </div>
+
+                                        <div className="summary-chip">
+                                            <div className="v">{previewPrimary ? '1' : '0'}</div>
+                                            <div className="l">رئيسية</div>
+                                        </div>
+
+                                        <div className="summary-chip">
+                                            <div className="v">{watchedFullName ? 'جاهز' : 'ناقص'}</div>
+                                            <div className="l">الاسم الكامل</div>
+                                        </div>
+                                    </div>
+
+                                    {person.suspect && (
+                                        <Alert
+                                            style={{ marginTop: 14 }}
+                                            type="warning"
+                                            showIcon
+                                            message="سجل مشتبه به قديم موجود"
+                                            description={`القضية: ${person.suspect.caseReference || '—'} / الحالة: ${person.suspect.status || '—'}`}
+                                        />
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
                     </Col>
                 </Row>
 
-                <div style={{ textAlign: 'left', marginTop: 8 }}>
-                    <Button type="primary" htmlType="submit" loading={isPending} icon={<SaveOutlined />} size="large">
-                        {isPending ? 'جاري التحديث...' : 'حفظ التعديلات'}
-                    </Button>
+                <div className="save-bar">
+                    <Row gutter={[12, 12]} align="middle" justify="space-between">
+                        <Col xs={24} lg={16}>
+                            <Space wrap size={10}>
+                                <div className="summary-chip">
+                                    <div className="v">{PersonSecurityStatusLabel[watchedSecurityStatus]}</div>
+                                    <div className="l">الحالة الأمنية</div>
+                                </div>
+
+                                <div className="summary-chip">
+                                    <div className="v">{DangerLevelLabel[watchedDangerLevel]}</div>
+                                    <div className="l">درجة الخطورة</div>
+                                </div>
+
+                                <div className="summary-chip">
+                                    <div className="v">{watchedHasAlert ? 'نعم' : 'لا'}</div>
+                                    <div className="l">تعميم فعّال</div>
+                                </div>
+
+                                <div className="summary-chip">
+                                    <div className="v">{watchedDangerous ? 'نعم' : 'لا'}</div>
+                                    <div className="l">مسلح وخطر</div>
+                                </div>
+                            </Space>
+                        </Col>
+
+                        <Col xs={24} lg={8}>
+                            <div style={{ textAlign: 'left' }}>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={isPending}
+                                    icon={<SaveOutlined />}
+                                    size="large"
+                                    style={{ minWidth: 190, height: 48, borderRadius: 14, fontWeight: 800 }}
+                                >
+                                    {isPending ? 'جاري التحديث...' : 'حفظ التعديلات'}
+                                </Button>
+                            </div>
+                        </Col>
+                    </Row>
                 </div>
             </Form>
         </div>
