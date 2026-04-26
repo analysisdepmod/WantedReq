@@ -160,6 +160,11 @@ export default function AddPersonPage() {
     const streamRef = useRef<MediaStream | null>(null);
     const [cameraOn, setCameraOn] = useState(false);
 
+    // ── Camera selection state ──────────────────────────────────────────────
+    const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+    const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+    // ────────────────────────────────────────────────────────────────────────
+
     const cleanupObjectUrl = (url?: string) => {
         if (url) URL.revokeObjectURL(url);
     };
@@ -169,6 +174,26 @@ export default function AddPersonPage() {
         streamRef.current = null;
         setCameraOn(false);
     }, []);
+
+    // ── Load available cameras ──────────────────────────────────────────────
+    const loadCameras = useCallback(async () => {
+        try {
+            // طلب إذن أولاً حتى تظهر أسماء الكاميرات
+            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            tempStream.getTracks().forEach((t) => t.stop());
+
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+            setCameras(videoDevices);
+
+            if (videoDevices.length > 0) {
+                setSelectedCameraId((prev) => prev || videoDevices[0].deviceId);
+            }
+        } catch {
+            messageApi.error('تعذّر جلب قائمة الكاميرات');
+        }
+    }, [messageApi]);
+    // ────────────────────────────────────────────────────────────────────────
 
     const { mutate: submitPerson, isPending } = useMutation({
         mutationFn: createPerson,
@@ -222,9 +247,13 @@ export default function AddPersonPage() {
     const setPrimary = (uid: string) =>
         setImages((prev) => prev.map((img) => ({ ...img, isPrimary: img.uid === uid })));
 
-    const startCamera = async () => {
+    // ── Start camera with selected device ───────────────────────────────────
+    const startCamera = useCallback(async (deviceId?: string) => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const constraints: MediaStreamConstraints = {
+                video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = stream;
             setCameraOn(true);
             setTimeout(() => {
@@ -236,7 +265,8 @@ export default function AddPersonPage() {
         } catch {
             messageApi.error('لم يتم السماح بالوصول للكاميرا');
         }
-    };
+    }, [messageApi]);
+    // ────────────────────────────────────────────────────────────────────────
 
     const captureFrame = () => {
         const video = videoRef.current;
@@ -257,6 +287,17 @@ export default function AddPersonPage() {
         setActiveTab(key);
         if (key !== 'camera') stopCamera();
     };
+
+    // ── Handle camera change from dropdown ──────────────────────────────────
+    const handleCameraChange = async (deviceId: string) => {
+        setSelectedCameraId(deviceId);
+        if (cameraOn) {
+            stopCamera();
+            // انتظر قليلاً ثم افتح الكاميرا الجديدة
+            setTimeout(() => startCamera(deviceId), 300);
+        }
+    };
+    // ────────────────────────────────────────────────────────────────────────
 
     const handleFinish = (values: AddPersonFormValues): void => {
         if (images.length === 0) {
@@ -330,7 +371,7 @@ export default function AddPersonPage() {
 
     return (
         <div className="add-shell">
-            
+
             {contextHolder}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
@@ -502,7 +543,7 @@ export default function AddPersonPage() {
                                 <Row gutter={16}>
                                     <Col xs={24} md={12}>
                                         <Form.Item name="nationalId" label="الهوية الوطنية" rules={[{ required: true, message: 'الهوية مطلوبة' }]}>
-                                            <Input placeholder="رقم الهوية" size="large" / >
+                                            <Input placeholder="رقم الهوية" size="large" />
                                         </Form.Item>
                                     </Col>
 
@@ -808,6 +849,34 @@ export default function AddPersonPage() {
                                             ),
                                             children: (
                                                 <>
+                                                    {/* ── Camera selector ── */}
+                                                    {cameras.length > 0 && (
+                                                        <div style={{ marginBottom: 12 }}>
+                                                            <Text
+                                                                style={{
+                                                                    display: 'block',
+                                                                    marginBottom: 6,
+                                                                    fontSize: 13,
+                                                                    color: 'var(--app-text-secondary, #64748b)',
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                <CameraOutlined style={{ marginLeft: 6 }} />
+                                                                اختر الكاميرا
+                                                            </Text>
+                                                            <Select
+                                                                style={{ width: '100%' }}
+                                                                size="large"
+                                                                value={selectedCameraId}
+                                                                onChange={handleCameraChange}
+                                                                options={cameras.map((cam, i) => ({
+                                                                    value: cam.deviceId,
+                                                                    label: cam.label || `كاميرا ${i + 1}`,
+                                                                }))}
+                                                            />
+                                                        </div>
+                                                    )}
+
                                                     <div className="camera-box">
                                                         <video
                                                             ref={videoRef}
@@ -832,7 +901,15 @@ export default function AddPersonPage() {
 
                                                     <Space direction="vertical" style={{ width: '100%' }}>
                                                         {!cameraOn ? (
-                                                            <Button icon={<CameraOutlined />} block size="large" onClick={startCamera}>
+                                                            <Button
+                                                                icon={<CameraOutlined />}
+                                                                block
+                                                                size="large"
+                                                                onClick={async () => {
+                                                                    await loadCameras();
+                                                                    startCamera(selectedCameraId || undefined);
+                                                                }}
+                                                            >
                                                                 فتح الكاميرا
                                                             </Button>
                                                         ) : (

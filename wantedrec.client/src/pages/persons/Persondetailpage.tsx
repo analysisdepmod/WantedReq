@@ -564,7 +564,11 @@ export default function PersonDetailPage() {
                                         </Descriptions.Item>
 
                                         <Descriptions.Item label="العنوان">
-                                            <div className="text-block">{person.address || '—'}</div>
+                                            <div className="text-block">
+                                                <span className="align-item" style={{ wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+                                                    {person.address || '—'}
+                                                </span>
+                                            </div>
                                         </Descriptions.Item>
 
                                         <Descriptions.Item label="مكان آخر ظهور">

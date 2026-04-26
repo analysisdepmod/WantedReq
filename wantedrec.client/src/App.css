@@ -1529,7 +1529,11 @@ body {
     white-space: pre-wrap;
     word-break: break-word;
     line-height: 1.75;
+
 }
+
+
+
 
 .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
@@ -4044,4 +4048,10 @@ pre {
     }
 }
 
- 
+
+.align-item {
+    white-space: nowrap;
+}
+
+
+
