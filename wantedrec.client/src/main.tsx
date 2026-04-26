@@ -6,7 +6,7 @@ import { Provider } from 'react-redux'
 import store from '../app/store.ts'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import "./i18n"
-import { StrictMode } from 'react'
+//import { StrictMode } from 'react'
 import { createTheme, ThemeProvider } from "@mui/material/styles"
 import CssBaseline from '@mui/material/CssBaseline'
 import { registerSW } from 'virtual:pwa-register'

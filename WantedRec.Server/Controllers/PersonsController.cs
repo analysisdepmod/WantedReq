@@ -3,21 +3,27 @@ using Microsoft.AspNetCore.Mvc;
 using NuGet.Frameworks;
 using System.Net;
 
+
+
 namespace WantedRec.Server.Controllers
 {
+
     [ApiController]
     [Route("api/[controller]")]
     public class PersonsController : ControllerBase
     {
+
+       
+        private const string FaceImagesCacheKey = "PersonFaceImages_cache";
         private readonly IPersonService _personService;
         private readonly ILogger<PersonsController> _logger;
-      
+        private readonly IMemoryCache _cache;
 
-        public PersonsController(IPersonService personService, ILogger<PersonsController> logger)
+        public PersonsController(IPersonService personService, ILogger<PersonsController> logger,IMemoryCache cache)
         {
             _personService = personService;
             _logger = logger;
-           
+            _cache = cache;
         }
         
 
@@ -80,6 +86,8 @@ namespace WantedRec.Server.Controllers
             {
                 var result = await _personService.CreateAsync(dto, cancellationToken);
 
+                //Clear Cache
+                _cache.Remove(FaceImagesCacheKey);
                 return Ok(
                     ApiResponse<PersonDetailDto>.Success(result, "Person created successfully"));
             }
@@ -123,6 +131,7 @@ namespace WantedRec.Server.Controllers
                 if (updated is null)
                     return NotFound(ApiResponse<PersonDetailDto>.Fail($"Person with ID {id} not found"));
 
+                _cache.Remove(FaceImagesCacheKey);
                 return Ok(ApiResponse<PersonDetailDto>.Success(updated, "Person updated successfully"));
             }
             catch (Exception ex)
@@ -147,11 +156,15 @@ namespace WantedRec.Server.Controllers
             if (id <= 0)
                 return BadRequest(ApiResponse<object>.Fail("Invalid person ID"));
 
+
             var success = await _personService.SoftDeleteAsync(id, cancellationToken);
 
             if (!success)
                 return NotFound(ApiResponse<object>.Fail($"Person with ID {id} not found or already deleted"));
 
+
+            _cache.Remove(FaceImagesCacheKey);
+            //Clear Cache
             return Ok(ApiResponse<object>.Success(null!, "Person deleted successfully"));
         }
 

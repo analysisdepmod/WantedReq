@@ -1,21 +1,27 @@
 ﻿import {
-    Badge,
-    IconButton,
-    Tooltip,
     Menu,
     MenuItem,
     ListItemText,
     Typography,
 } from "@mui/material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
+import { Badge, Tooltip, Button } from 'antd';
+import {
+
+    BellOutlined,
+   
+} from '@ant-design/icons';
+
 import {  useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../app/store";
 import axios from "../../api";
- 
-const NotificationButton = () => {
+
+ interface Props{
+     recEvents?:number
+}
+const NotificationButton = ({ recEvents }: Props) => {
     const { data: notifications = [] } = useNotifications();
     const unreadCount = notifications.length;
     const { arlang } = useSelector((state: RootState) => state.setting);
@@ -40,16 +46,17 @@ const NotificationButton = () => {
 
     return (
         <>
+             
+              
             <Tooltip title="الإشعارات">
-                <Badge
-                    badgeContent={unreadCount > 0 ? unreadCount : null}
-                    color="error"
-                    overlap="circular"
-                    anchorOrigin={{ vertical: "top", horizontal: "right" }}
-                >
-                    <IconButton onClick={handleOpen} sx={{ color: "inherit" }}>
-                        <NotificationsIcon />
-                    </IconButton>
+                <Badge count={unreadCount > 0 ? unreadCount + recEvents! : null} size="small" offset={[-4, 4]}>
+                    <Button
+                        type="text"
+                        shape="circle"
+                        icon={<BellOutlined style={{ color: 'var(--app-muted)', fontSize: 16 }} />}
+                        style={{ background: 'var(--app-hover)', border: 'none' }}
+                        onClick={handleOpen}
+                    />
                 </Badge>
             </Tooltip>
 

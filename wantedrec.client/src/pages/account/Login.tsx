@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../../app/store';
 import { LoginAsync, NotLogin } from '../../../app/reducers/authSlice';
 import { useNavigate } from 'react-router-dom';
-import { ILoginResponse, LoginDto } from '../../Interfaces/GeneralInterface';
+import {  LoginDto } from '../../Interfaces/GeneralInterface';
 import {
     recreateChatConnection,
     recreateNotificationConnection,
@@ -288,7 +288,7 @@ export default function Login() {
                         {/* البريد الإلكتروني */}
                         <Form.Item
                             name="email"
-                            label={<span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>البريد الإلكتروني</span>}
+                            label={<span style={{  fontSize: '13px' }}>البريد الإلكتروني</span>}
                             rules={[
                                 { required: true, message: 'البريد الإلكتروني مطلوب' },
                                 { pattern: /^[A-Za-z0-9._%+-]+@mod\.com$/, message: 'يجب أن يحتوي على mod.com@' },
@@ -300,7 +300,7 @@ export default function Login() {
                                     background: 'rgba(0,212,255,0.04)',
                                     border: '1px solid rgba(0,212,255,0.2)',
                                     borderRadius: '8px',
-                                    color: '#fff',
+                                   
                                     height: '44px',
                                     fontSize: '14px',
                                     direction: 'ltr',
@@ -312,7 +312,7 @@ export default function Login() {
                         {/* كلمة المرور */}
                         <Form.Item
                             name="password"
-                            label={<span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>كلمة المرور</span>}
+                            label={<span style={{  fontSize: '13px' }}>كلمة المرور</span>}
                             rules={[{ required: true, message: 'كلمة المرور مطلوبة' }]}
                         >
                             <Input.Password
@@ -321,7 +321,7 @@ export default function Login() {
                                     background: 'rgba(0,212,255,0.04)',
                                     border: '1px solid rgba(0,212,255,0.2)',
                                     borderRadius: '8px',
-                                    color: '#fff',
+                          
                                     height: '44px',
                                     fontSize: '14px',
                                 }}
@@ -381,36 +381,7 @@ export default function Login() {
                 </div>
             </div>
 
-            <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.6; }
-                }
-                .ant-input, .ant-input-password {
-                    color: #fff !important;
-                }
-                .ant-input::placeholder {
-                    color: rgba(255,255,255,0.25) !important;
-                }
-                .ant-input-password input {
-                    background: transparent !important;
-                    color: #fff !important;
-                }
-                .ant-input-password .anticon {
-                    color: rgba(255,255,255,0.4) !important;
-                }
-                .ant-input:hover, .ant-input:focus,
-                .ant-input-affix-wrapper:hover,
-                .ant-input-affix-wrapper-focused {
-                    border-color: #00d4ff !important;
-                    box-shadow: 0 0 0 2px rgba(0,212,255,0.1) !important;
-                }
-                .ant-form-item-explain-error {
-                    color: #ff6b6b !important;
-                    font-size: 12px !important;
-                }
-            `}</style>
+
         </div>
     );
 }

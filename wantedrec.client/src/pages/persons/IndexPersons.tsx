@@ -13,8 +13,7 @@ import {
     Tooltip,
     Badge,
     Select,
-    Row,
-    Col,
+   
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -26,7 +25,7 @@ import {
     CheckCircleOutlined,
     StopOutlined,
     ReloadOutlined,
-    FilterOutlined,
+   
     UserOutlined,
     CameraOutlined,
     WarningOutlined,
@@ -43,7 +42,7 @@ import {
     PersonSecurityStatusLabel,
     PersonSecurityStatusColor,
     DangerLevelLabel,
-    DangerLevelColor,
+  
 } from '../../types/person.types';
 
 const { Title, Text } = Typography;

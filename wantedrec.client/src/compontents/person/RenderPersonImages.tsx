@@ -3,7 +3,7 @@
 } from 'antd';
 import FaceProcessedImage from './FaceProcessedImage';
 import { CameraOutlined } from '@mui/icons-material';
-import { Key, useState } from 'react';
+
 import { PersonFaceImageDto } from '../../types/person.types';
 
 interface PersonImages{

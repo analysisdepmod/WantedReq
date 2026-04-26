@@ -9,7 +9,7 @@ import {
     HomeOutlined,
     BulbOutlined,
     BulbFilled,
-    BellOutlined,
+ 
     SearchOutlined,
     SettingOutlined,
     CheckCircleOutlined,
@@ -33,7 +33,7 @@ import {
     getRecognitionConnection,
     ensureStart,
 } from '../signalr/signalrConnections';
-import { useNotifications } from '../hooks/useNotifications';
+//import { useNotifications } from '../hooks/useNotifications';
 import { useSignalRRecognition } from '../hooks/useSignalRRecognition';
 import Settings from '../compontents/Settings';
 import ChatWidget from '../compontents/chat/ChatWidget';
@@ -242,7 +242,7 @@ export default function MainLayout() {
     const isAdmin = userRoles?.includes(RULES.Admin);
     const isManager = userRoles?.includes(RULES.Manager);
 
-    const { data: notifications = [] } = useNotifications();
+    //const { data: notifications = [] } = useNotifications();
     const { events: recEvents, isConnected: recConnected } = useSignalRRecognition();
 
     const direction = arlang ? 'rtl' : 'ltr';
@@ -489,17 +489,8 @@ export default function MainLayout() {
                                 style={{ background: 'var(--app-hover)', border: 'none' }}
                             />
                         </Tooltip>
-
-                        <Tooltip title="الإشعارات">
-                            <Badge count={notifications.length} size="small" offset={[-4, 4]}>
-                                <Button
-                                    type="text"
-                                    shape="circle"
-                                    icon={<BellOutlined style={{ color: 'var(--app-muted)', fontSize: 16 }} />}
-                                    style={{ background: 'var(--app-hover)', border: 'none' }}
-                                />
-                            </Badge>
-                        </Tooltip>
+                        <ChatWidget currentUserId={currentUserId} recEvents={recEvents.length} />
+                    
 
                         <Dropdown
                             menu={{
@@ -726,7 +717,7 @@ export default function MainLayout() {
                                 background: 'var(--app-surface-2)',
                             }}
                         >
-                            <ChatWidget currentUserId={currentUserId} />
+                          
 
                             <Button
                                 danger

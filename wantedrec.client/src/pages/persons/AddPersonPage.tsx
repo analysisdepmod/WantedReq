@@ -485,8 +485,9 @@ export default function AddPersonPage() {
                                     </Col>
 
                                     <Col xs={24} md={12}>
-                                        <Form.Item name="birthDate" label="تاريخ الميلاد">
+                                        <Form.Item name="birthDate" label="تاريخ الميلاد" rules={[{ required: true, message: 'تاريخ الميلاد  مطلوب' }]}>
                                             <DatePicker style={{ width: '100%' }} placeholder="اختر التاريخ" size="large" />
+
                                         </Form.Item>
                                     </Col>
                                 </Row>
@@ -500,8 +501,8 @@ export default function AddPersonPage() {
 
                                 <Row gutter={16}>
                                     <Col xs={24} md={12}>
-                                        <Form.Item name="nationalId" label="الهوية الوطنية">
-                                            <Input placeholder="رقم الهوية" size="large" />
+                                        <Form.Item name="nationalId" label="الهوية الوطنية" rules={[{ required: true, message: 'الهوية مطلوبة' }]}>
+                                            <Input placeholder="رقم الهوية" size="large" / >
                                         </Form.Item>
                                     </Col>
 
@@ -558,13 +559,13 @@ export default function AddPersonPage() {
 
                                 <Row gutter={16}>
                                     <Col xs={24} md={12}>
-                                        <Form.Item name="securityStatus" label="الحالة الأمنية">
+                                        <Form.Item name="securityStatus" label="الحالة الأمنية" rules={[{ required: true, message: 'الحالة الامنية مطلوبة' }]}>
                                             <Select size="large" options={securityOptions} />
                                         </Form.Item>
                                     </Col>
 
                                     <Col xs={24} md={12}>
-                                        <Form.Item name="dangerLevel" label="درجة الخطورة">
+                                        <Form.Item name="dangerLevel" label="درجة الخطورة" rules={[{ required: true, message: 'درجة الخطورة مطلوبة' }]}>
                                             <Select size="large" options={dangerOptions} />
                                         </Form.Item>
                                     </Col>

@@ -59,10 +59,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LogoutPath = "/wantedrec/Account/Logout";
 });
 ////
-builder.Services.AddHttpClient("LocalApi", client =>
-{
-    client.BaseAddress = new Uri("http://localhost:5454");
-});
+ 
 
 //builder.Services.AddAuthorization(options =>
 //{
@@ -175,7 +172,7 @@ builder.Services.AddCors(options =>
                 if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                     return false;
 
-                return uri.Port == 5555;
+                return uri.Port == 5555 || uri.Port == 8000 || uri.Port == 1011;
             })
             .AllowAnyHeader()
             .AllowAnyMethod()

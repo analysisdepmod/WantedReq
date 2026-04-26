@@ -1,4 +1,4 @@
-import { Carousel, Typography, Badge, Space, Row, Col, Button, Tag } from 'antd';
+import { Carousel, Typography, Badge, Space, Row, Col, Button } from 'antd';
 import { useMemo, useState } from 'react';
 import Marquee from 'react-fast-marquee';
 import { Link, useNavigate } from 'react-router-dom';
@@ -159,6 +159,9 @@ function StatCard({
 }
 
 const Home = () => {
+
+  
+
     const { arlang } = useSelector((state: RootState) => state.setting);
     const { t } = useTranslation();
     const navigate = useNavigate();

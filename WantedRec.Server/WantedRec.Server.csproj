@@ -6,13 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\wantedrec.client</SpaRoot>
 	  <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
-	  <SpaProxyServerUrl>http://localhost:5555</SpaProxyServerUrl>
+	  <SpaProxyServerUrl>https://localhost:5555</SpaProxyServerUrl>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Remove="wwwroot\Nato.png" />
-    <Content Remove="wwwroot\Raj1.png" />
-  </ItemGroup>
+ 
 
   <ItemGroup>
     <PackageReference Include="ArgosTranslate.PyNet" Version="2.0.3" />
@@ -68,11 +65,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <ItemGroup>
-    <None Include="wwwroot\Nato.png" />
-    <None Include="wwwroot\Raj1.png" />
-  </ItemGroup>
+ 
 
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
