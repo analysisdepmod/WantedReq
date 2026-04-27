@@ -16,7 +16,7 @@ import {
     Empty,
     message,
     Divider,
-    Tooltip,
+    
     Avatar,
 } from 'antd';
 import type { UploadFile } from 'antd';
@@ -34,9 +34,9 @@ import {
     AlertOutlined,
     ReloadOutlined,
     ScanOutlined,
-    IdcardOutlined,
+  
     ThunderboltOutlined,
-    InfoCircleOutlined,
+    
     FolderOpenOutlined,
     FileImageOutlined,
     ExclamationCircleOutlined,
@@ -53,77 +53,7 @@ import {
 
 const { Title, Text } = Typography;
 
-const LOCAL_COMPACT_CSS = `
-.rec-compact-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  margin-bottom: 18px;
-  scrollbar-width: thin;
-}
 
-.rec-compact-stats::-webkit-scrollbar {
-  height: 8px;
-}
-
-.rec-compact-stats::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-
-.rec-compact-stat-wrap {
-  flex: 0 0 165px;
-  min-width: 165px;
-  max-width: 165px;
-}
-
-.rec-compact-stat-card {
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 18px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 78px;
-  box-shadow: var(--app-shadow);
-}
-
-.rec-compact-stat-card .v {
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 900;
-}
-
-.rec-compact-stat-card .l {
-  font-size: 11px;
-  color: var(--app-muted);
-  margin-top: 6px;
-}
-
-.rec-compact-stat-card .i {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid transparent;
-  font-size: 16px;
-}
-
-@media (max-width: 992px) {
-  .rec-compact-stat-wrap {
-    flex-basis: 150px;
-    min-width: 150px;
-    max-width: 150px;
-  }
-}
-`;
 
 type BatchImageItem = {
     id: string;
@@ -581,7 +511,7 @@ export default function RecognitionPage() {
 
     return (
         <div className="rec-shell">
-            <style>{LOCAL_COMPACT_CSS}</style>
+            
             {contextHolder}
 
             <div className="rec-hero">

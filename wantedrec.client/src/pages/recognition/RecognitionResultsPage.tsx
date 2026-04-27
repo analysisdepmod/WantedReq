@@ -16,7 +16,7 @@ import {
     Badge,
     Card,
     Avatar,
-    Empty,
+   
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { ReactNode } from 'react';
@@ -26,7 +26,7 @@ import {
     VideoCameraOutlined,
     UserOutlined,
     ReloadOutlined,
-    FilterOutlined,
+   
     WarningOutlined,
     BarChartOutlined,
     ThunderboltOutlined,
@@ -37,7 +37,7 @@ import {
     ScanOutlined,
     AimOutlined,
     ClockCircleOutlined,
-    RadarChartOutlined,
+    
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useRecognitions } from '../../hooks/useRecognitions';
@@ -47,10 +47,10 @@ import type { RecognitionDto } from '../../types/camera.types';
 import { RecognitionStatusLabel, RecognitionStatusColor } from '../../types/camera.types';
 import {
     DangerLevel,
-    DangerLevelColor,
+    
     DangerLevelLabel,
     PersonSecurityStatus,
-    PersonSecurityStatusColor,
+   
     PersonSecurityStatusLabel,
 } from '../../types/person.types';
 import { buildImgUrl } from '../../Interfaces/functions';

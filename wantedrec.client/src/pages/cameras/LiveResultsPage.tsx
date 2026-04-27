@@ -10,8 +10,7 @@ import {
     Input,
     Select,
     Alert,
-    Avatar,
-    Card,
+   
 } from 'antd';
 import {
     CheckCircleOutlined,

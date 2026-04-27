@@ -16,7 +16,7 @@ import { RULES } from "../../Interfaces/roles";
  
 
 
-const ChatWidget: React.FC<{ currentUserId: string }> = ({ currentUserId }) => {
+const ChatWidget: React.FC<{ currentUserId: string, recEvents?: number }> = ({ currentUserId, recEvents }) => {
     const [open, setOpen] = useState(false);
     const [tabIndex, setTabIndex] = useState(0);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -55,14 +55,11 @@ const ChatWidget: React.FC<{ currentUserId: string }> = ({ currentUserId }) => {
         <div style={{ zIndex: 200 }}>
             <Box
                 sx={{
-                    position: "fixed",
-                    bottom: 54,
                     right: arlang ? "auto" : 20,
                     left: arlang ? 20 : "auto",
                     display: "flex",
-                    flexDirection: "column",
+                    flexDirection: "row",
                     gap: 1.5,
-                    zIndex: 1300,
                 }}
             >
                 <Fab color="primary" onClick={() => setOpen(true)} sx={{ width: 40, height: 40 }}>
@@ -103,7 +100,7 @@ const ChatWidget: React.FC<{ currentUserId: string }> = ({ currentUserId }) => {
                             borderRadius: "50%",
                         }}
                     >
-                        <NotificationButton />
+                        <NotificationButton recEvents={recEvents} />
                     </Box>
                 </Badge>
             </Box>

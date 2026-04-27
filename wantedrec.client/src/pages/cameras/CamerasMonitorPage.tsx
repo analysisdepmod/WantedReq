@@ -25,7 +25,7 @@ import {
     WarningOutlined,
     ReloadOutlined,
     RadarChartOutlined,
-    ThunderboltOutlined,
+    
     ApartmentOutlined,
     ClockCircleOutlined,
 } from '@ant-design/icons';

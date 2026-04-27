@@ -42,9 +42,9 @@ export interface LiveRecognitionEvent {
 
 type EventSeverity = 'normal' | 'warning' | 'critical';
 
-const suspectAudio = typeof Audio !== 'undefined' ? new Audio('/sounds/alert.wav') : null;
-const normalAudio = typeof Audio !== 'undefined' ? new Audio('/sounds/message.wav') : null;
-
+const suspectAudio = typeof Audio !== 'undefined' ? new Audio('/sounds/danger-2.mp3') : null;
+const normalAudio = typeof Audio !== 'undefined' ? new Audio('/sounds/Anemy.wav') : null;
+ 
 function resolveSeverity(evt: LiveRecognitionEvent): EventSeverity {
     if (
         evt.dangerLevel === DangerLevel.Critical ||
@@ -68,6 +68,7 @@ function resolveSeverity(evt: LiveRecognitionEvent): EventSeverity {
 }
 
 function playSound(evt: LiveRecognitionEvent) {
+    
     const severity = resolveSeverity(evt);
     const audio = severity === 'normal' ? normalAudio : suspectAudio;
     if (!audio) return;

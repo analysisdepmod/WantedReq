@@ -22,7 +22,7 @@ export interface GroupUnreadCount {
 
 // 🔊 أصوات التنبيه
  
-import notificationAudioAddUser from "/sounds/addUser.wav";
+import notificationAudioAddUser from "/sounds/Anemy.wav";
 import { getChatConnection } from "../signalr/signalrConnections";
 import { toast } from "react-toastify";
 
@@ -43,7 +43,7 @@ export const useAllUnreadCounts = (currentUserId: string) => {
     };
     const playSoundAndNotify = (msg: any, type: "private" | "group") => {
         try {
-            const notificationAudio = new Audio("/sounds/message.wav");
+            const notificationAudio = new Audio("/sounds/Anemy.wav");
             notificationAudio.currentTime = 0;
             notificationAudio.play();
         } catch (err) {

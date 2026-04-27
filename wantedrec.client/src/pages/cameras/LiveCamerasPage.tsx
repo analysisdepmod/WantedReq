@@ -468,8 +468,7 @@ export default function LiveCamerasPage() {
         isLoading,
         localCameras,
         onRecognized,
-        totalFrames,
-        totalKnown,
+       
         deviceMapping,
         setDeviceMapping,
         refetch,

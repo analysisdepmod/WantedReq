@@ -10,7 +10,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
 
-    const baseURL = env.VITE_BASE_URL || 'http://localhost:7067';
+    const baseURL = env.VITE_BASE_URL || 'https://localhost:7067';
     const APPPORT = Number(env.VITE_APP_PORT || 5555);
     const certificateName = env.VITE_HTTPS_CERT_NAME || 'reactapp1.client';
     const useHttps = env.VITE_USE_HTTPS === 'true';
@@ -53,12 +53,11 @@ export default defineConfig(({ mode }) => {
     }
 
     const target = env.ASPNETCORE_HTTPS_PORT
-        ? `http://localhost:${env.ASPNETCORE_HTTPS_PORT}`
+        ? `https://10.198.223.13:${env.ASPNETCORE_HTTPS_PORT}`
         : env.ASPNETCORE_URLS
             ? env.ASPNETCORE_URLS.split(';')[0]
             : baseURL;
-    console.log('env.VITE_USE_HTTPS =', env.VITE_USE_HTTPS);
-    console.log('httpsConfig enabled =', !!httpsConfig);
+ 
     return {
         plugins: [
             react(),

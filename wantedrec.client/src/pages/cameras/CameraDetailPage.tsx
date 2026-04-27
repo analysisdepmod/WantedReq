@@ -14,7 +14,7 @@ import {
     Slider,
     Alert,
     message,
-    Badge,
+    
     Tooltip,
     Card,
     Avatar,
