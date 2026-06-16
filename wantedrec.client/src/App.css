@@ -4055,3 +4055,17 @@ pre {
 
 
 
+
+/* ── الرفع الجماعي: معاينة مصغّرة ── */
+.bulk-thumb {
+    width: 46px;
+    height: 46px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-2);
+    display: block;
+}
+.bulk-thumb-empty {
+    background: var(--app-hover);
+}
