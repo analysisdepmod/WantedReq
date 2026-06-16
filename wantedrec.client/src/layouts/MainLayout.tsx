@@ -14,6 +14,7 @@ import {
     SettingOutlined,
     CheckCircleOutlined,
     UsergroupAddOutlined,
+    CloudUploadOutlined,
     GlobalOutlined,
     UserSwitchOutlined,
     ThunderboltOutlined,
@@ -640,6 +641,12 @@ export default function MainLayout() {
                                 to="/Indexpersons"
                                 icon={<UsergroupAddOutlined />}
                                 label="بيانات الأشخاص"
+                                collapsed={collapsed}
+                            />
+                            <NavItem
+                                to="/bulkpersons"
+                                icon={<CloudUploadOutlined />}
+                                label="الرفع الجماعي للأشخاص"
                                 collapsed={collapsed}
                             />
 

@@ -25,6 +25,7 @@ import "react-toastify/dist/ReactToastify.css";
 import IndexPersons from './pages/persons/IndexPersons';
 import EditPerson from './pages/persons/EditPerson';
 import AddPersonPage from './pages/persons/AddPersonPage';
+import BulkUploadPersonsPage from './pages/persons/BulkUploadPersonsPage';
 import PersonDetailPage from './pages/persons/Persondetailpage';
 import RecognitionPage from './pages/recognition/RecognitionPage';
 import RecognitionResultsPage from './pages/recognition/RecognitionResultsPage';
@@ -81,6 +82,7 @@ function App() {
                     <Route path='Indexpersons' element={<IndexPersons />} />
                     <Route path='persons/:id' element={<PersonDetailPage />} />
                     <Route path='addperson' element={<AddPersonPage />} />
+                    <Route path='bulkpersons' element={<BulkUploadPersonsPage />} />
                     <Route path='editperson/:id' element={<EditPerson />} />
 
 
